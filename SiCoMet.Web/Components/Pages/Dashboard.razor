@@ -1,36 +1,18 @@
 ﻿@page "/dashboard"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
-@using SiCoMet.Web.Data
 
 <PageTitle>SiCoMet - Inicio</PageTitle>
 
-<AuthorizeView>
-    <Authorized>
-        <div class="dashboard-container">
-            <div class="dashboard-header">
-                <h1>SiCoMet</h1>
-                <form action="Account/Logout" method="post">
-                    <AntiforgeryToken />
-                    <input type="hidden" name="ReturnUrl" value="" />
-                    <button type="submit" class="btn btn-outline-secondary btn-sm">Cerrar sesión</button>
-                </form>
-            </div>
-
-            <p>Bienvenido, <strong>@context.User.Identity?.Name</strong>.</p>
-
-            <div class="alert alert-info">
-                Este es el panel principal. Todavía no hay módulos habilitados — aquí irán el inventario de equipos, calibraciones y demás funcionalidades a medida que se desarrollen.
-            </div>
-
-            <AuthorizeView Roles="@Roles.Administrador" Context="adminContext">
-                <Authorized>
-                    <div class="accesos-rapidos">
-                        <h2>Administración</h2>
-                        <a href="/usuarios" class="btn btn-outline-primary">Gestionar usuarios</a>
-                    </div>
-                </Authorized>
-            </AuthorizeView>
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <span class="text-muted">Panel principal</span>
+            <h1>Inicio</h1>
         </div>
-    </Authorized>
-</AuthorizeView>
+    </div>
+
+    <div class="alert alert-info">
+        Este es el panel principal de SiCoMet. Desde el menú lateral podrás acceder a las funcionalidades disponibles según tu rol.
+    </div>
+</div>
