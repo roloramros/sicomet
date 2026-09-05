@@ -4,7 +4,7 @@ using SiCoMet.Web.Data;
 
 namespace SiCoMet.Web.Components.Account;
 
-// Remove the "else if (EmailSender is IdentityNoOpEmailSender)" block from RegisterConfirmation.razor after updating with a real implementation.
+// Implementación "no-op": no se envían correos reales (no hay registro público ni recuperación de contraseña por email en SiCoMet).
 internal sealed class IdentityNoOpEmailSender : IEmailSender<ApplicationUser>
 {
     private readonly IEmailSender emailSender = new NoOpEmailSender();
