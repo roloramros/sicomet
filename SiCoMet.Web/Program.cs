@@ -61,10 +61,12 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
-// Seed de roles iniciales
+// Seed de roles y usuario administrador inicial
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
     string[] roles = { "Administrador", "Directores", "Técnicos", "Usuario", "Calibrador" };
 
     foreach (var role in roles)
@@ -72,6 +74,26 @@ using (var scope = app.Services.CreateScope())
         if (!await roleManager.RoleExistsAsync(role))
         {
             await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    string adminEmail = "admin@sicomet.local";
+    string adminPassword = "Admin*2026!";
+
+    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+    if (adminUser == null)
+    {
+        adminUser = new ApplicationUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(adminUser, adminPassword);
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(adminUser, "Administrador");
         }
     }
 }
