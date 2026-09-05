@@ -1,8 +1,6 @@
 ﻿@inherits LayoutComponentBase
-@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
 @using SiCoMet.Web.Data
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject UserManager<ApplicationUser> UserManager
 
 <AuthorizeView>
     <Authorized Context="authContext">
@@ -40,11 +38,11 @@
 
                 <footer class="sidebar-footer">
                     <div class="user-info">
-                        <div class="user-avatar" aria-hidden="true">@InicialUsuario</div>
+                        <div class="user-avatar" aria-hidden="true">@InicialUsuario(authContext.User)</div>
                         <div class="user-details">
-                            <strong>@NombreUsuario</strong>
-                            <span>@CorreoUsuario</span>
-                            <span class="user-role">@RolUsuario</span>
+                            <strong>@NombreUsuario(authContext.User)</strong>
+                            <span>@authContext.User.Identity?.Name</span>
+                            <span class="user-role">@RolUsuario(authContext.User)</span>
                         </div>
                     </div>
 
@@ -75,40 +73,21 @@
 </div>
 
 @code {
-    private string NombreUsuario { get; set; } = "Usuario";
-    private string CorreoUsuario { get; set; } = "";
-    private string RolUsuario { get; set; } = "Sin rol";
-
-    private string InicialUsuario => string.IsNullOrWhiteSpace(NombreUsuario)
-        ? "U"
-        : NombreUsuario.Trim()[0].ToString().ToUpperInvariant();
-
-    protected override async Task OnInitializedAsync()
+    private string NombreUsuario(ClaimsPrincipal user)
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var principal = authenticationState.User;
+        var nombre = user.FindFirst("NombreCompleto")?.Value;
+        return string.IsNullOrWhiteSpace(nombre) ? (user.Identity?.Name ?? "Usuario") : nombre;
+    }
 
-        if (principal.Identity?.IsAuthenticated != true)
-        {
-            return;
-        }
+    private string RolUsuario(ClaimsPrincipal user)
+    {
+        var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        return roles.Count > 0 ? string.Join(", ", roles) : "Sin rol";
+    }
 
-        CorreoUsuario = principal.Identity.Name ?? "";
-
-        var usuario = await UserManager.GetUserAsync(principal);
-        if (usuario is null)
-        {
-            NombreUsuario = string.IsNullOrWhiteSpace(CorreoUsuario) ? "Usuario" : CorreoUsuario;
-            return;
-        }
-
-        NombreUsuario = string.IsNullOrWhiteSpace(usuario.NombreCompleto)
-            ? usuario.Email ?? "Usuario"
-            : usuario.NombreCompleto;
-
-        CorreoUsuario = usuario.Email ?? CorreoUsuario;
-
-        var roles = await UserManager.GetRolesAsync(usuario);
-        RolUsuario = roles.Count > 0 ? string.Join(", ", roles) : "Sin rol";
+    private string InicialUsuario(ClaimsPrincipal user)
+    {
+        var nombre = NombreUsuario(user);
+        return string.IsNullOrWhiteSpace(nombre) ? "U" : nombre.Trim()[0].ToString().ToUpperInvariant();
     }
 }
