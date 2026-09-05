@@ -1,6 +1,7 @@
 ﻿@page "/dashboard"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using SiCoMet.Web.Data
 
 <PageTitle>SiCoMet - Inicio</PageTitle>
 
@@ -21,6 +22,15 @@
             <div class="alert alert-info">
                 Este es el panel principal. Todavía no hay módulos habilitados — aquí irán el inventario de equipos, calibraciones y demás funcionalidades a medida que se desarrollen.
             </div>
+
+            <AuthorizeView Roles="@Roles.Administrador" Context="adminContext">
+                <Authorized>
+                    <div class="accesos-rapidos">
+                        <h2>Administración</h2>
+                        <a href="/usuarios" class="btn btn-outline-primary">Gestionar usuarios</a>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </Authorized>
 </AuthorizeView>

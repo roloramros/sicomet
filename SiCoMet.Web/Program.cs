@@ -67,9 +67,7 @@ using (var scope = app.Services.CreateScope())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-    string[] roles = { "Administrador", "Directores", "Técnicos", "Usuario", "Calibrador" };
-
-    foreach (var role in roles)
+    foreach (var role in Roles.Todos)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
@@ -87,13 +85,14 @@ using (var scope = app.Services.CreateScope())
         {
             UserName = adminEmail,
             Email = adminEmail,
-            EmailConfirmed = true
+            EmailConfirmed = true,
+            NombreCompleto = "Administrador del Sistema"
         };
 
         var result = await userManager.CreateAsync(adminUser, adminPassword);
         if (result.Succeeded)
         {
-            await userManager.AddToRoleAsync(adminUser, "Administrador");
+            await userManager.AddToRoleAsync(adminUser, Roles.Administrador);
         }
     }
 }

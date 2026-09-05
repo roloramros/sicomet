@@ -1,0 +1,108 @@
+﻿@page "/usuarios"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using SiCoMet.Web.Data
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Usuarios</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Usuarios del sistema</h1>
+        </div>
+        <a href="/usuarios/nuevo" class="btn btn-primary">+ Nuevo usuario</a>
+    </div>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert alert-success">@Mensaje</div>
+    }
+
+    @if (usuarios is null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (usuarios.Count == 0)
+    {
+        <p>No hay usuarios registrados todavía.</p>
+    }
+    else
+    {
+        <table class="tabla-usuarios">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in usuarios)
+                {
+                    <tr>
+                        <td>@u.NombreCompleto</td>
+                        <td>@u.Email</td>
+                        <td>@u.Rol</td>
+                        <td>
+                            @if (u.Activo)
+                            {
+                                <span class="badge badge-activo">Activo</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-inactivo">Inactivo</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="@($"/usuarios/editar/{u.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<FilaUsuario>? usuarios;
+
+    [SupplyParameterFromQuery]
+    private string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var lista = new List<FilaUsuario>();
+
+        foreach (var user in UserManager.Users.OrderBy(u => u.NombreCompleto).ToList())
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            var activo = user.LockoutEnd is null || user.LockoutEnd < DateTimeOffset.UtcNow;
+
+            lista.Add(new FilaUsuario
+            {
+                Id = user.Id,
+                NombreCompleto = string.IsNullOrWhiteSpace(user.NombreCompleto) ? "(sin nombre)" : user.NombreCompleto,
+                Email = user.Email ?? "",
+                Rol = roles.Count > 0 ? string.Join(", ", roles) : "(sin rol)",
+                Activo = activo
+            });
+        }
+
+        usuarios = lista;
+    }
+
+    private sealed class FilaUsuario
+    {
+        public string Id { get; set; } = "";
+        public string NombreCompleto { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Rol { get; set; } = "";
+        public bool Activo { get; set; }
+    }
+}
