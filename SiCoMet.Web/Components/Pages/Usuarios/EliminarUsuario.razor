@@ -1,0 +1,74 @@
+﻿@page "/usuarios/eliminar/{Id}"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using SiCoMet.Web.Data
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Eliminar usuario</PageTitle>
+
+<div class="page-container">
+    <a href="/usuarios" class="back-link">← Volver a usuarios</a>
+    <h1>Eliminar usuario</h1>
+
+    @if (usuario is null)
+    {
+        <div class="alert alert-warning">El usuario no existe.</div>
+    }
+    else
+    {
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="alert alert-warning">
+            ¿Seguro que deseas eliminar al usuario <strong>@usuario.NombreCompleto</strong> (@usuario.Email)?
+            Esta acción no se puede deshacer.
+        </div>
+
+        <EditForm Model="Confirmacion" OnValidSubmit="Eliminar" FormName="eliminar-usuario">
+            <button type="submit" class="btn btn-danger">Eliminar definitivamente</button>
+            <a href="/usuarios" class="btn btn-outline-secondary">Cancelar</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = "";
+
+    private ApplicationUser? usuario;
+    private string? errorMessage;
+    private ConfirmacionModel Confirmacion { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        usuario = await UserManager.FindByIdAsync(Id);
+    }
+
+    private async Task Eliminar()
+    {
+        errorMessage = null;
+
+        if (usuario is null)
+        {
+            return;
+        }
+
+        var resultado = await UserManager.DeleteAsync(usuario);
+
+        if (!resultado.Succeeded)
+        {
+            errorMessage = string.Join(" ", resultado.Errors.Select(e => e.Description));
+            return;
+        }
+
+        NavigationManager.NavigateTo("/usuarios?Mensaje=Usuario eliminado correctamente", forceLoad: true);
+    }
+
+    private sealed class ConfirmacionModel
+    {
+    }
+}
