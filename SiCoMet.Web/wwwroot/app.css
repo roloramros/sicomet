@@ -74,6 +74,13 @@ h1:focus {
     color: #1b6ec2;
 }
 
+.cupet-logo {
+    display: block;
+    max-width: 160px;
+    height: auto;
+    margin: 0.25rem auto 0.5rem;
+}
+
 .login-card .subtitle {
     text-align: center;
     color: #6c757d;
