@@ -1,11 +1,114 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Identity
+@using SiCoMet.Web.Data
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
 
-<div class="page">
-    @Body
-</div>
+<AuthorizeView>
+    <Authorized Context="authContext">
+        <div class="app-shell">
+            <aside class="sidebar">
+                <header class="sidebar-header">
+                    <div class="brand-icon" aria-hidden="true">S</div>
+                    <div class="brand-text">
+                        <strong>SiCoMet</strong>
+                        <span>Sistema de Control de Metrología</span>
+                    </div>
+                </header>
+
+                <nav class="sidebar-body" aria-label="Navegación principal">
+                    <div class="nav-section">
+                        <div class="nav-section-title">Principal</div>
+                        <NavLink href="/dashboard" class="nav-item" Match="NavLinkMatch.All">
+                            <span class="nav-icon">⌂</span>
+                            <span>Inicio</span>
+                        </NavLink>
+                    </div>
+
+                    <AuthorizeView Roles="@Roles.Administrador">
+                        <Authorized>
+                            <div class="nav-section">
+                                <div class="nav-section-title">Administración</div>
+                                <NavLink href="/usuarios" class="nav-item">
+                                    <span class="nav-icon">👥</span>
+                                    <span>Usuarios</span>
+                                </NavLink>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </nav>
+
+                <footer class="sidebar-footer">
+                    <div class="user-info">
+                        <div class="user-avatar" aria-hidden="true">@InicialUsuario</div>
+                        <div class="user-details">
+                            <strong>@NombreUsuario</strong>
+                            <span>@CorreoUsuario</span>
+                            <span class="user-role">@RolUsuario</span>
+                        </div>
+                    </div>
+
+                    <form action="Account/Logout" method="post" class="logout-form">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="/" />
+                        <button type="submit" class="logout-button">Cerrar sesión</button>
+                    </form>
+                </footer>
+            </aside>
+
+            <main class="main-content">
+                @Body
+            </main>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="anonymous-page">
+            @Body
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
 
 <div id="blazor-error-ui">
     Ha ocurrido un error inesperado.
     <a href="" class="reload">Recargar</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private string NombreUsuario { get; set; } = "Usuario";
+    private string CorreoUsuario { get; set; } = "";
+    private string RolUsuario { get; set; } = "Sin rol";
+
+    private string InicialUsuario => string.IsNullOrWhiteSpace(NombreUsuario)
+        ? "U"
+        : NombreUsuario.Trim()[0].ToString().ToUpperInvariant();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var principal = authenticationState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        CorreoUsuario = principal.Identity.Name ?? "";
+
+        var usuario = await UserManager.GetUserAsync(principal);
+        if (usuario is null)
+        {
+            NombreUsuario = string.IsNullOrWhiteSpace(CorreoUsuario) ? "Usuario" : CorreoUsuario;
+            return;
+        }
+
+        NombreUsuario = string.IsNullOrWhiteSpace(usuario.NombreCompleto)
+            ? usuario.Email ?? "Usuario"
+            : usuario.NombreCompleto;
+
+        CorreoUsuario = usuario.Email ?? CorreoUsuario;
+
+        var roles = await UserManager.GetRolesAsync(usuario);
+        RolUsuario = roles.Count > 0 ? string.Join(", ", roles) : "Sin rol";
+    }
+}
