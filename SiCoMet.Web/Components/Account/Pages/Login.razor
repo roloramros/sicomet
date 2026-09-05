@@ -74,7 +74,7 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("Usuario inició sesión.");
-            RedirectManager.RedirectTo(ReturnUrl);
+            RedirectManager.RedirectTo(string.IsNullOrEmpty(ReturnUrl) ? "/dashboard" : ReturnUrl);
         }
         else if (result.IsLockedOut)
         {

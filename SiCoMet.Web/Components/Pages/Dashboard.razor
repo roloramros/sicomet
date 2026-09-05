@@ -1,0 +1,25 @@
+﻿@page "/dashboard"
+@attribute [Authorize]
+
+<PageTitle>SiCoMet - Inicio</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <h1>SiCoMet</h1>
+                <form action="Account/Logout" method="post">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="/" />
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Cerrar sesión</button>
+                </form>
+            </div>
+
+            <p>Bienvenido, <strong>@context.User.Identity?.Name</strong>.</p>
+
+            <div class="alert alert-info">
+                Este es el panel principal. Todavía no hay módulos habilitados — aquí irán el inventario de equipos, calibraciones y demás funcionalidades a medida que se desarrollen.
+            </div>
+        </div>
+    </Authorized>
+</AuthorizeView>
