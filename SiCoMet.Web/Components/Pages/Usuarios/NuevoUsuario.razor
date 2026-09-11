@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Identity
 @using SiCoMet.Web.Data
 @inject UserManager<ApplicationUser> UserManager
+@inject IAuditoriaService Auditoria
 @inject NavigationManager NavigationManager
 
 <PageTitle>SiCoMet - Nuevo usuario</PageTitle>
@@ -80,6 +81,8 @@
         if (resultado.Succeeded)
         {
             await UserManager.AddToRoleAsync(nuevoUsuario, Input.Rol);
+            await Auditoria.RegistrarAsync("Usuario", TipoAccionAuditoria.Crear,
+                $"Se creó el usuario '{Input.NombreCompleto}' ({Input.Email}) con rol {Input.Rol}.");
             NavigationManager.NavigateTo("/usuarios?Mensaje=Usuario creado correctamente", forceLoad: true);
         }
         else

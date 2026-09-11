@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Identity
 @using SiCoMet.Web.Data
 @inject UserManager<ApplicationUser> UserManager
+@inject IAuditoriaService Auditoria
 @inject NavigationManager NavigationManager
 
 <PageTitle>SiCoMet - Editar usuario</PageTitle>
@@ -142,6 +143,10 @@
                 return;
             }
         }
+
+        await Auditoria.RegistrarAsync("Usuario", TipoAccionAuditoria.Editar,
+            $"Se editó el usuario '{Input.NombreCompleto}' ({usuario.Email}): rol = {Input.Rol}, activo = {(Input.Activo ? "sí" : "no")}" +
+            (string.IsNullOrWhiteSpace(Input.NuevaPassword) ? "." : ", contraseña restablecida."));
 
         NavigationManager.NavigateTo("/usuarios?Mensaje=Usuario actualizado correctamente", forceLoad: true);
     }

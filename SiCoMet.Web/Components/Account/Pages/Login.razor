@@ -7,6 +7,7 @@
 @using SiCoMet.Web.Data
 
 @inject SignInManager<ApplicationUser> SignInManager
+@inject ApplicationDbContext DbContext
 @inject ILogger<Login> Logger
 @inject IdentityRedirectManager RedirectManager
 
@@ -72,19 +73,51 @@
     public async Task LoginUser()
     {
         var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+
+        var direccionIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+
         if (result.Succeeded)
         {
             Logger.LogInformation("Usuario inició sesión.");
+
+            var usuario = await SignInManager.UserManager.FindByEmailAsync(Input.Email);
+            DbContext.RegistrosAcceso.Add(new RegistroAcceso
+            {
+                UsuarioId = usuario?.Id,
+                Email = Input.Email,
+                Exitoso = true,
+                DireccionIP = direccionIp
+            });
+            await DbContext.SaveChangesAsync();
+
             RedirectManager.RedirectTo(string.IsNullOrEmpty(ReturnUrl) ? "/dashboard" : ReturnUrl);
         }
         else if (result.IsLockedOut)
         {
             Logger.LogWarning("Cuenta de usuario bloqueada por intentos fallidos.");
             errorMessage = "Error: cuenta bloqueada temporalmente por demasiados intentos fallidos.";
+
+            DbContext.RegistrosAcceso.Add(new RegistroAcceso
+            {
+                Email = Input.Email,
+                Exitoso = false,
+                DireccionIP = direccionIp,
+                Detalle = "Cuenta bloqueada por intentos fallidos"
+            });
+            await DbContext.SaveChangesAsync();
         }
         else
         {
             errorMessage = "Error: correo o contraseña incorrectos.";
+
+            DbContext.RegistrosAcceso.Add(new RegistroAcceso
+            {
+                Email = Input.Email,
+                Exitoso = false,
+                DireccionIP = direccionIp,
+                Detalle = "Credenciales incorrectas"
+            });
+            await DbContext.SaveChangesAsync();
         }
     }
 
