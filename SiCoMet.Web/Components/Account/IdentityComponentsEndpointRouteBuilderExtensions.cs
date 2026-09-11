@@ -17,26 +17,9 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         accountGroup.MapPost("/Logout", async (
             ClaimsPrincipal user,
             SignInManager<ApplicationUser> signInManager,
-            ApplicationDbContext dbContext,
             [FromForm] string returnUrl) =>
         {
-            var email = user.Identity?.Name;
-            var usuarioId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
             await signInManager.SignOutAsync();
-
-            if (!string.IsNullOrEmpty(email))
-            {
-                dbContext.RegistrosAcceso.Add(new RegistroAcceso
-                {
-                    UsuarioId = usuarioId,
-                    Email = email,
-                    Exitoso = true,
-                    Detalle = "Cierre de sesión"
-                });
-                await dbContext.SaveChangesAsync();
-            }
-
             return TypedResults.LocalRedirect($"~/{returnUrl}");
         });
 
