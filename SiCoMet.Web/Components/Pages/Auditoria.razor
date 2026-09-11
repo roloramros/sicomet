@@ -1,0 +1,15 @@
+﻿@page "/auditoria"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using SiCoMet.Web.Data
+
+<PageTitle>SiCoMet - Auditoría</PageTitle>
+
+<div class="page-container">
+    <a href="/dashboard" class="back-link">← Volver al inicio</a>
+    <h1>Auditoría</h1>
+
+    <div class="alert alert-info">
+        Esta sección mostrará el registro de acciones realizadas en el sistema (creación, edición y eliminación de datos), indicando quién hizo cada cambio y cuándo. Todavía está en construcción.
+    </div>
+</div>

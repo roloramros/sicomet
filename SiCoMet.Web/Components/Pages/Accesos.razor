@@ -1,0 +1,15 @@
+﻿@page "/accesos"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using SiCoMet.Web.Data
+
+<PageTitle>SiCoMet - Control de acceso</PageTitle>
+
+<div class="page-container">
+    <a href="/dashboard" class="back-link">← Volver al inicio</a>
+    <h1>Control de acceso</h1>
+
+    <div class="alert alert-info">
+        Esta sección mostrará el historial de inicios de sesión al sistema (usuario, fecha, hora, dirección IP e intentos fallidos). Todavía está en construcción.
+    </div>
+</div>
