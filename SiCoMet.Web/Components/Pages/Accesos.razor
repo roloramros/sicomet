@@ -1,15 +1,93 @@
 ﻿@page "/accesos"
 @attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
 @using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
 
 <PageTitle>SiCoMet - Control de acceso</PageTitle>
 
 <div class="page-container">
     <a href="/dashboard" class="back-link">← Volver al inicio</a>
     <h1>Control de acceso</h1>
+    <p class="page-subtitle">Historial de inicios de sesión al sistema.</p>
 
-    <div class="alert alert-info">
-        Esta sección mostrará el historial de inicios de sesión al sistema (usuario, fecha, hora, dirección IP e intentos fallidos). Todavía está en construcción.
+    <div class="filtros-form">
+        <input type="text" placeholder="Buscar por correo..." @bind="filtroEmail" @bind:event="oninput" class="form-control" />
+        <select @bind="filtroEstado" class="form-control">
+            <option value="">Todos</option>
+            <option value="exitoso">Exitosos</option>
+            <option value="fallido">Fallidos</option>
+        </select>
     </div>
+
+    @if (registros is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        var filtrados = registros
+            .Where(r => string.IsNullOrWhiteSpace(filtroEmail) || r.Email.Contains(filtroEmail, StringComparison.OrdinalIgnoreCase))
+            .Where(r => filtroEstado == "" || (filtroEstado == "exitoso" && r.Exitoso) || (filtroEstado == "fallido" && !r.Exitoso))
+            .ToList();
+
+        @if (filtrados.Count == 0)
+        {
+            <p>No hay registros que coincidan con el filtro.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Correo</th>
+                        <th>Fecha y hora</th>
+                        <th>Estado</th>
+                        <th>Dirección IP</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in filtrados)
+                    {
+                        <tr>
+                            <td>@r.Email</td>
+                            <td>@r.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td>
+                                @if (r.Exitoso)
+                                {
+                                    <span class="badge badge-activo">Exitoso</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-inactivo">Fallido</span>
+                                }
+                            </td>
+                            <td>@(string.IsNullOrWhiteSpace(r.DireccionIP) ? "—" : r.DireccionIP)</td>
+                            <td>@(string.IsNullOrWhiteSpace(r.Detalle) ? "—" : r.Detalle)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted registro-contador">Mostrando @filtrados.Count de @registros.Count registros (últimos @LimiteRegistros).</p>
+        }
+    }
 </div>
+
+@code {
+    private const int LimiteRegistros = 200;
+
+    private List<RegistroAcceso>? registros;
+    private string filtroEmail = "";
+    private string filtroEstado = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        registros = await DbContext.RegistrosAcceso
+            .OrderByDescending(r => r.FechaHora)
+            .Take(LimiteRegistros)
+            .ToListAsync();
+    }
+}
