@@ -1,15 +1,113 @@
 ﻿@page "/auditoria"
 @attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
 @using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
 
 <PageTitle>SiCoMet - Auditoría</PageTitle>
 
 <div class="page-container">
     <a href="/dashboard" class="back-link">← Volver al inicio</a>
     <h1>Auditoría</h1>
+    <p class="page-subtitle">Registro de acciones realizadas en el sistema (crear, editar, eliminar).</p>
 
-    <div class="alert alert-info">
-        Esta sección mostrará el registro de acciones realizadas en el sistema (creación, edición y eliminación de datos), indicando quién hizo cada cambio y cuándo. Todavía está en construcción.
+    <div class="filtros-form">
+        <input type="text" placeholder="Buscar por usuario o mensaje..." @bind="filtroTexto" @bind:event="oninput" class="form-control" />
+        <select @bind="filtroEntidad" class="form-control">
+            <option value="">Todas las entidades</option>
+            @foreach (var entidad in entidadesDisponibles)
+            {
+                <option value="@entidad">@entidad</option>
+            }
+        </select>
+        <select @bind="filtroAccion" class="form-control">
+            <option value="">Todas las acciones</option>
+            <option value="Crear">Crear</option>
+            <option value="Editar">Editar</option>
+            <option value="Eliminar">Eliminar</option>
+        </select>
     </div>
+
+    @if (registros is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        var filtrados = registros
+            .Where(r => string.IsNullOrWhiteSpace(filtroTexto)
+                || r.NombreUsuario.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase)
+                || r.Mensaje.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
+            .Where(r => string.IsNullOrEmpty(filtroEntidad) || r.Entidad == filtroEntidad)
+            .Where(r => string.IsNullOrEmpty(filtroAccion) || r.Accion.ToString() == filtroAccion)
+            .ToList();
+
+        @if (filtrados.Count == 0)
+        {
+            <p>No hay registros que coincidan con el filtro.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Fecha y hora</th>
+                        <th>Usuario</th>
+                        <th>Entidad</th>
+                        <th>Acción</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in filtrados)
+                    {
+                        <tr>
+                            <td class="nowrap">@r.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td>@r.NombreUsuario</td>
+                            <td>@r.Entidad</td>
+                            <td>
+                                <span class="badge @ClaseBadgeAccion(r.Accion)">@r.Accion</span>
+                            </td>
+                            <td>@r.Mensaje</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted registro-contador">Mostrando @filtrados.Count de @registros.Count registros (últimos @LimiteRegistros).</p>
+        }
+    }
 </div>
+
+@code {
+    private const int LimiteRegistros = 200;
+
+    private List<RegistroAuditoria>? registros;
+    private List<string> entidadesDisponibles = new();
+
+    private string filtroTexto = "";
+    private string filtroEntidad = "";
+    private string filtroAccion = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        registros = await DbContext.RegistrosAuditoria
+            .OrderByDescending(r => r.FechaHora)
+            .Take(LimiteRegistros)
+            .ToListAsync();
+
+        entidadesDisponibles = registros
+            .Select(r => r.Entidad)
+            .Distinct()
+            .OrderBy(e => e)
+            .ToList();
+    }
+
+    private static string ClaseBadgeAccion(TipoAccionAuditoria accion) => accion switch
+    {
+        TipoAccionAuditoria.Crear => "badge-activo",
+        TipoAccionAuditoria.Eliminar => "badge-inactivo",
+        _ => "badge-neutro"
+    };
+}

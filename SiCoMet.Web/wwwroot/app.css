@@ -195,3 +195,12 @@ h1:focus {
     background-color: #f8d7da;
     color: #721c24;
 }
+
+.badge-neutro {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
