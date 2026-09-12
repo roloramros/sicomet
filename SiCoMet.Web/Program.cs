@@ -29,7 +29,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = true;
+
+        // Bloqueo permanente tras intentos fallidos: no se desbloquea solo con el tiempo,
+        // requiere que un Administrador lo desbloquee y restablezca la contraseña desde /usuarios.
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromDays(36500); // ~100 años
+        options.Lockout.MaxFailedAccessAttempts = 5;
+    })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
