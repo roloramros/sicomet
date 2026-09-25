@@ -1,0 +1,84 @@
+﻿@page "/areas/nueva"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Nueva área</PageTitle>
+
+<div class="page-container">
+    <a href="/areas" class="back-link">← Volver a áreas</a>
+    <h1>Nueva área</h1>
+
+    <EditForm Model="Input" OnValidSubmit="Crear" FormName="nueva-area">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="form-group mb-3">
+            <label>Nombre</label>
+            <InputText @bind-Value="Input.Nombre" class="form-control" />
+            <ValidationMessage For="() => Input.Nombre" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Descripción</label>
+            <InputTextArea @bind-Value="Input.Descripcion" class="form-control" />
+            <ValidationMessage For="() => Input.Descripcion" class="text-danger" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear área</button>
+        <a href="/areas" class="btn btn-outline-secondary">Cancelar</a>
+    </EditForm>
+</div>
+
+@code {
+    private string? errorMessage;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    private async Task Crear()
+    {
+        errorMessage = null;
+
+        var existe = await DbContext.Areas.AnyAsync(a => a.Nombre == Input.Nombre);
+        if (existe)
+        {
+            errorMessage = "Ya existe un área con ese nombre.";
+            return;
+        }
+
+        var nuevaArea = new Area
+        {
+            Nombre = Input.Nombre,
+            Descripcion = Input.Descripcion
+        };
+
+        DbContext.Areas.Add(nuevaArea);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Area", TipoAccionAuditoria.Crear,
+            $"Se creó el área '{nuevaArea.Nombre}'.");
+
+        NavigationManager.NavigateTo("/areas?Mensaje=Área creada correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [MaxLength(150)]
+        public string Nombre { get; set; } = "";
+
+        [MaxLength(500)]
+        public string? Descripcion { get; set; }
+    }
+}

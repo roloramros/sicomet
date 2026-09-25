@@ -1,0 +1,74 @@
+﻿@page "/areas"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Áreas</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Áreas</h1>
+        </div>
+        <a href="/areas/nueva" class="btn btn-primary">+ Nueva área</a>
+    </div>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert alert-success">@Mensaje</div>
+    }
+
+    @if (areas is null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (areas.Count == 0)
+    {
+        <p>No hay áreas registradas todavía.</p>
+    }
+    else
+    {
+        <table class="tabla-usuarios">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Instrumentos</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in areas)
+                {
+                    <tr>
+                        <td>@a.Nombre</td>
+                        <td>@a.Descripcion</td>
+                        <td>@a.Instrumentos.Count</td>
+                        <td>
+                            <a href="@($"/areas/editar/{a.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
+                            <a href="@($"/areas/eliminar/{a.Id}")" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Area>? areas;
+
+    [SupplyParameterFromQuery]
+    private string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        areas = await DbContext.Areas
+            .Include(a => a.Instrumentos)
+            .OrderBy(a => a.Nombre)
+            .ToListAsync();
+    }
+}

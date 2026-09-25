@@ -1,0 +1,112 @@
+﻿@page "/areas/editar/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Editar área</PageTitle>
+
+<div class="page-container">
+    <a href="/areas" class="back-link">← Volver a áreas</a>
+    <h1>Editar área</h1>
+
+    @if (area is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <EditForm Model="Input" OnValidSubmit="GuardarCambios" FormName="editar-area">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="form-group mb-3">
+                <label>Nombre</label>
+                <InputText @bind-Value="Input.Nombre" class="form-control" />
+                <ValidationMessage For="() => Input.Nombre" class="text-danger" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Descripción</label>
+                <InputTextArea @bind-Value="Input.Descripcion" class="form-control" />
+                <ValidationMessage For="() => Input.Descripcion" class="text-danger" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            <a href="/areas" class="btn btn-outline-secondary">Cancelar</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Area? area;
+    private string? errorMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        area = await DbContext.Areas.FindAsync(Id);
+
+        if (area is not null && HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            Input = new InputModel
+            {
+                Nombre = area.Nombre,
+                Descripcion = area.Descripcion
+            };
+        }
+    }
+
+    private async Task GuardarCambios()
+    {
+        errorMessage = null;
+
+        if (area is null)
+        {
+            return;
+        }
+
+        var existe = await DbContext.Areas.AnyAsync(a => a.Nombre == Input.Nombre && a.Id != area.Id);
+        if (existe)
+        {
+            errorMessage = "Ya existe otra área con ese nombre.";
+            return;
+        }
+
+        area.Nombre = Input.Nombre;
+        area.Descripcion = Input.Descripcion;
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Area", TipoAccionAuditoria.Editar,
+            $"Se editó el área '{area.Nombre}'.");
+
+        NavigationManager.NavigateTo("/areas?Mensaje=Área actualizada correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [MaxLength(150)]
+        public string Nombre { get; set; } = "";
+
+        [MaxLength(500)]
+        public string? Descripcion { get; set; }
+    }
+}

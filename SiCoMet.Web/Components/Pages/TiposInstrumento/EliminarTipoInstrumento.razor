@@ -1,0 +1,79 @@
+﻿@page "/tipos-instrumento/eliminar/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Eliminar tipo de instrumento</PageTitle>
+
+<div class="page-container">
+    <a href="/tipos-instrumento" class="back-link">← Volver a tipos de instrumento</a>
+    <h1>Eliminar tipo de instrumento</h1>
+
+    @if (tipo is null)
+    {
+        <div class="alert alert-warning">El tipo de instrumento no existe.</div>
+    }
+    else if (cantidadInstrumentos > 0)
+    {
+        <div class="alert alert-danger">
+            No se puede eliminar el tipo <strong>@tipo.Nombre</strong> porque tiene
+            @cantidadInstrumentos instrumento(s) asociado(s). Reasigná o eliminá esos
+            instrumentos primero.
+        </div>
+        <a href="/tipos-instrumento" class="btn btn-outline-secondary">Volver</a>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            ¿Seguro que deseas eliminar el tipo <strong>@tipo.Nombre</strong>?
+            Esta acción no se puede deshacer.
+        </div>
+
+        <EditForm Model="Confirmacion" OnValidSubmit="Eliminar" FormName="eliminar-tipo-instrumento">
+            <button type="submit" class="btn btn-danger">Eliminar definitivamente</button>
+            <a href="/tipos-instrumento" class="btn btn-outline-secondary">Cancelar</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private TipoInstrumento? tipo;
+    private int cantidadInstrumentos;
+    private ConfirmacionModel Confirmacion { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        tipo = await DbContext.TiposInstrumento.FindAsync(Id);
+        if (tipo is not null)
+        {
+            cantidadInstrumentos = await DbContext.Instrumentos.CountAsync(i => i.TipoInstrumentoId == tipo.Id);
+        }
+    }
+
+    private async Task Eliminar()
+    {
+        if (tipo is null || cantidadInstrumentos > 0)
+        {
+            return;
+        }
+
+        DbContext.TiposInstrumento.Remove(tipo);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("TipoInstrumento", TipoAccionAuditoria.Eliminar,
+            $"Se eliminó el tipo de instrumento '{tipo.Nombre}'.");
+
+        NavigationManager.NavigateTo("/tipos-instrumento?Mensaje=Tipo de instrumento eliminado correctamente", forceLoad: true);
+    }
+
+    private sealed class ConfirmacionModel
+    {
+    }
+}

@@ -1,0 +1,79 @@
+﻿@page "/areas/eliminar/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Eliminar área</PageTitle>
+
+<div class="page-container">
+    <a href="/areas" class="back-link">← Volver a áreas</a>
+    <h1>Eliminar área</h1>
+
+    @if (area is null)
+    {
+        <div class="alert alert-warning">El área no existe.</div>
+    }
+    else if (cantidadInstrumentos > 0)
+    {
+        <div class="alert alert-danger">
+            No se puede eliminar el área <strong>@area.Nombre</strong> porque tiene
+            @cantidadInstrumentos instrumento(s) asociado(s). Reasigná o eliminá esos
+            instrumentos primero.
+        </div>
+        <a href="/areas" class="btn btn-outline-secondary">Volver</a>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            ¿Seguro que deseas eliminar el área <strong>@area.Nombre</strong>?
+            Esta acción no se puede deshacer.
+        </div>
+
+        <EditForm Model="Confirmacion" OnValidSubmit="Eliminar" FormName="eliminar-area">
+            <button type="submit" class="btn btn-danger">Eliminar definitivamente</button>
+            <a href="/areas" class="btn btn-outline-secondary">Cancelar</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Area? area;
+    private int cantidadInstrumentos;
+    private ConfirmacionModel Confirmacion { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        area = await DbContext.Areas.FindAsync(Id);
+        if (area is not null)
+        {
+            cantidadInstrumentos = await DbContext.Instrumentos.CountAsync(i => i.AreaId == area.Id);
+        }
+    }
+
+    private async Task Eliminar()
+    {
+        if (area is null || cantidadInstrumentos > 0)
+        {
+            return;
+        }
+
+        DbContext.Areas.Remove(area);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Area", TipoAccionAuditoria.Eliminar,
+            $"Se eliminó el área '{area.Nombre}'.");
+
+        NavigationManager.NavigateTo("/areas?Mensaje=Área eliminada correctamente", forceLoad: true);
+    }
+
+    private sealed class ConfirmacionModel
+    {
+    }
+}

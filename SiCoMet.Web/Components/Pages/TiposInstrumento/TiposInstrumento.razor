@@ -1,0 +1,74 @@
+﻿@page "/tipos-instrumento"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Tipos de instrumento</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Tipos de instrumento</h1>
+        </div>
+        <a href="/tipos-instrumento/nuevo" class="btn btn-primary">+ Nuevo tipo</a>
+    </div>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert alert-success">@Mensaje</div>
+    }
+
+    @if (tipos is null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (tipos.Count == 0)
+    {
+        <p>No hay tipos de instrumento registrados todavía.</p>
+    }
+    else
+    {
+        <table class="tabla-usuarios">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Unidad de medida</th>
+                    <th>Instrumentos</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in tipos)
+                {
+                    <tr>
+                        <td>@t.Nombre</td>
+                        <td>@t.UnidadMedida</td>
+                        <td>@t.Instrumentos.Count</td>
+                        <td>
+                            <a href="@($"/tipos-instrumento/editar/{t.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
+                            <a href="@($"/tipos-instrumento/eliminar/{t.Id}")" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<TipoInstrumento>? tipos;
+
+    [SupplyParameterFromQuery]
+    private string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        tipos = await DbContext.TiposInstrumento
+            .Include(t => t.Instrumentos)
+            .OrderBy(t => t.Nombre)
+            .ToListAsync();
+    }
+}

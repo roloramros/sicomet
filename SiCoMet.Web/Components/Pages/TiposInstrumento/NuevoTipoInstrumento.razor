@@ -1,0 +1,84 @@
+﻿@page "/tipos-instrumento/nuevo"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Nuevo tipo de instrumento</PageTitle>
+
+<div class="page-container">
+    <a href="/tipos-instrumento" class="back-link">← Volver a tipos de instrumento</a>
+    <h1>Nuevo tipo de instrumento</h1>
+
+    <EditForm Model="Input" OnValidSubmit="Crear" FormName="nuevo-tipo-instrumento">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="form-group mb-3">
+            <label>Nombre</label>
+            <InputText @bind-Value="Input.Nombre" class="form-control" />
+            <ValidationMessage For="() => Input.Nombre" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Unidad de medida</label>
+            <InputText @bind-Value="Input.UnidadMedida" class="form-control" placeholder="ej. bar, °C, mA" />
+            <ValidationMessage For="() => Input.UnidadMedida" class="text-danger" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear tipo</button>
+        <a href="/tipos-instrumento" class="btn btn-outline-secondary">Cancelar</a>
+    </EditForm>
+</div>
+
+@code {
+    private string? errorMessage;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    private async Task Crear()
+    {
+        errorMessage = null;
+
+        var existe = await DbContext.TiposInstrumento.AnyAsync(t => t.Nombre == Input.Nombre);
+        if (existe)
+        {
+            errorMessage = "Ya existe un tipo de instrumento con ese nombre.";
+            return;
+        }
+
+        var nuevoTipo = new TipoInstrumento
+        {
+            Nombre = Input.Nombre,
+            UnidadMedida = Input.UnidadMedida
+        };
+
+        DbContext.TiposInstrumento.Add(nuevoTipo);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("TipoInstrumento", TipoAccionAuditoria.Crear,
+            $"Se creó el tipo de instrumento '{nuevoTipo.Nombre}'.");
+
+        NavigationManager.NavigateTo("/tipos-instrumento?Mensaje=Tipo de instrumento creado correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [MaxLength(150)]
+        public string Nombre { get; set; } = "";
+
+        [MaxLength(50)]
+        public string? UnidadMedida { get; set; }
+    }
+}
