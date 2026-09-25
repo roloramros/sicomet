@@ -1,0 +1,132 @@
+﻿@page "/instrumentos"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Instrumentos</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Instrumentos</h1>
+        </div>
+        <a href="/instrumentos/nuevo" class="btn btn-primary">+ Nuevo instrumento</a>
+    </div>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert alert-success">@Mensaje</div>
+    }
+
+    <div class="filtros-form">
+        <input type="text" placeholder="Buscar por serie o posición..." @bind="filtroTexto" @bind:event="oninput" class="form-control" />
+        <select @bind="filtroAreaId" class="form-control">
+            <option value="0">Todas las áreas</option>
+            @foreach (var a in areas)
+            {
+                <option value="@a.Id">@a.Nombre</option>
+            }
+        </select>
+        <select @bind="filtroTipoId" class="form-control">
+            <option value="0">Todos los tipos</option>
+            @foreach (var t in tipos)
+            {
+                <option value="@t.Id">@t.Nombre</option>
+            }
+        </select>
+    </div>
+
+    @if (instrumentos is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        var filtrados = instrumentos
+            .Where(i => string.IsNullOrWhiteSpace(filtroTexto)
+                || i.Serie.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase)
+                || (i.Posicion ?? "").Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
+            .Where(i => filtroAreaId == 0 || i.AreaId == filtroAreaId)
+            .Where(i => filtroTipoId == 0 || i.TipoInstrumentoId == filtroTipoId)
+            .ToList();
+
+        @if (filtrados.Count == 0)
+        {
+            <p>No hay instrumentos que coincidan con el filtro.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Serie</th>
+                        <th>Posición</th>
+                        <th>Área</th>
+                        <th>Tipo</th>
+                        <th>Rango</th>
+                        <th>Periodicidad</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in filtrados)
+                    {
+                        <tr>
+                            <td>@i.Serie</td>
+                            <td>@i.Posicion</td>
+                            <td>@i.Area.Nombre</td>
+                            <td>@i.TipoInstrumento.Nombre</td>
+                            <td>@i.RangoMedicionMin - @i.RangoMedicionMax</td>
+                            <td>@i.PeriodicidadMeses meses</td>
+                            <td>
+                                @if (i.Activo)
+                                {
+                                    <span class="badge badge-activo">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-inactivo">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="@($"/instrumentos/editar/{i.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
+                                <a href="@($"/instrumentos/eliminar/{i.Id}")" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted registro-contador">Mostrando @filtrados.Count de @instrumentos.Count instrumentos.</p>
+        }
+    }
+</div>
+
+@code {
+    private List<Instrumento>? instrumentos;
+    private List<Area> areas = new();
+    private List<TipoInstrumento> tipos = new();
+
+    private string filtroTexto = "";
+    private int filtroAreaId = 0;
+    private int filtroTipoId = 0;
+
+    [SupplyParameterFromQuery]
+    private string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        areas = await DbContext.Areas.OrderBy(a => a.Nombre).ToListAsync();
+        tipos = await DbContext.TiposInstrumento.OrderBy(t => t.Nombre).ToListAsync();
+
+        instrumentos = await DbContext.Instrumentos
+            .Include(i => i.Area)
+            .Include(i => i.TipoInstrumento)
+            .OrderBy(i => i.Area.Nombre).ThenBy(i => i.Serie)
+            .ToListAsync();
+    }
+}

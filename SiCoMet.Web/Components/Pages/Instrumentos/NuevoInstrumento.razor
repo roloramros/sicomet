@@ -1,0 +1,163 @@
+﻿@page "/instrumentos/nuevo"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Nuevo instrumento</PageTitle>
+
+<div class="page-container">
+    <a href="/instrumentos" class="back-link">← Volver a instrumentos</a>
+    <h1>Nuevo instrumento</h1>
+
+    <EditForm Model="Input" OnValidSubmit="Crear" FormName="nuevo-instrumento">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="form-group mb-3">
+            <label>Área</label>
+            <InputSelect @bind-Value="Input.AreaId" class="form-control">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var a in areas)
+                {
+                    <option value="@a.Id">@a.Nombre</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="() => Input.AreaId" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Tipo de instrumento</label>
+            <InputSelect @bind-Value="Input.TipoInstrumentoId" class="form-control">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var t in tipos)
+                {
+                    <option value="@t.Id">@t.Nombre</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="() => Input.TipoInstrumentoId" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Serie</label>
+            <InputText @bind-Value="Input.Serie" class="form-control" />
+            <ValidationMessage For="() => Input.Serie" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Posición</label>
+            <InputText @bind-Value="Input.Posicion" class="form-control" />
+            <ValidationMessage For="() => Input.Posicion" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Rango de medición (mín. - máx.)</label>
+            <div class="d-flex gap-2">
+                <InputNumber @bind-Value="Input.RangoMedicionMin" class="form-control" placeholder="Mínimo" />
+                <InputNumber @bind-Value="Input.RangoMedicionMax" class="form-control" placeholder="Máximo" />
+            </div>
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Periodicidad de calibración (meses)</label>
+            <InputNumber @bind-Value="Input.PeriodicidadMeses" class="form-control" />
+            <ValidationMessage For="() => Input.PeriodicidadMeses" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3 form-check">
+            <InputCheckbox @bind-Value="Input.Activo" class="form-check-input" id="activoCheck" />
+            <label class="form-check-label" for="activoCheck">Instrumento activo</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear instrumento</button>
+        <a href="/instrumentos" class="btn btn-outline-secondary">Cancelar</a>
+    </EditForm>
+</div>
+
+@code {
+    private string? errorMessage;
+    private List<Area> areas = new();
+    private List<TipoInstrumento> tipos = new();
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        areas = await DbContext.Areas.OrderBy(a => a.Nombre).ToListAsync();
+        tipos = await DbContext.TiposInstrumento.OrderBy(t => t.Nombre).ToListAsync();
+    }
+
+    private async Task Crear()
+    {
+        errorMessage = null;
+
+        if (Input.AreaId == 0 || Input.TipoInstrumentoId == 0)
+        {
+            errorMessage = "Debés seleccionar un área y un tipo de instrumento.";
+            return;
+        }
+
+        var serieExiste = await DbContext.Instrumentos.AnyAsync(i => i.Serie == Input.Serie);
+        if (serieExiste)
+        {
+            errorMessage = "Ya existe un instrumento con esa serie.";
+            return;
+        }
+
+        var nuevoInstrumento = new Instrumento
+        {
+            AreaId = Input.AreaId,
+            TipoInstrumentoId = Input.TipoInstrumentoId,
+            Serie = Input.Serie,
+            Posicion = Input.Posicion,
+            RangoMedicionMin = Input.RangoMedicionMin,
+            RangoMedicionMax = Input.RangoMedicionMax,
+            PeriodicidadMeses = Input.PeriodicidadMeses,
+            Activo = Input.Activo
+        };
+
+        DbContext.Instrumentos.Add(nuevoInstrumento);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Instrumento", TipoAccionAuditoria.Crear,
+            $"Se creó el instrumento con serie '{nuevoInstrumento.Serie}'.");
+
+        NavigationManager.NavigateTo("/instrumentos?Mensaje=Instrumento creado correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "El área es obligatoria.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Debés seleccionar un área.")]
+        public int AreaId { get; set; }
+
+        [Required(ErrorMessage = "El tipo de instrumento es obligatorio.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Debés seleccionar un tipo de instrumento.")]
+        public int TipoInstrumentoId { get; set; }
+
+        [Required(ErrorMessage = "La serie es obligatoria.")]
+        [MaxLength(100)]
+        public string Serie { get; set; } = "";
+
+        [MaxLength(100)]
+        public string? Posicion { get; set; }
+
+        public decimal? RangoMedicionMin { get; set; }
+        public decimal? RangoMedicionMax { get; set; }
+
+        [Range(0, 120, ErrorMessage = "La periodicidad debe estar entre 0 y 120 meses.")]
+        public int PeriodicidadMeses { get; set; } = 12;
+
+        public bool Activo { get; set; } = true;
+    }
+}

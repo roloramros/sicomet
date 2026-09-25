@@ -1,0 +1,186 @@
+﻿@page "/instrumentos/editar/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Editar instrumento</PageTitle>
+
+<div class="page-container">
+    <a href="/instrumentos" class="back-link">← Volver a instrumentos</a>
+    <h1>Editar instrumento</h1>
+
+    @if (instrumento is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <EditForm Model="Input" OnValidSubmit="GuardarCambios" FormName="editar-instrumento">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="form-group mb-3">
+                <label>Área</label>
+                <InputSelect @bind-Value="Input.AreaId" class="form-control">
+                    @foreach (var a in areas)
+                    {
+                        <option value="@a.Id">@a.Nombre</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => Input.AreaId" class="text-danger" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Tipo de instrumento</label>
+                <InputSelect @bind-Value="Input.TipoInstrumentoId" class="form-control">
+                    @foreach (var t in tipos)
+                    {
+                        <option value="@t.Id">@t.Nombre</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => Input.TipoInstrumentoId" class="text-danger" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Serie</label>
+                <InputText @bind-Value="Input.Serie" class="form-control" />
+                <ValidationMessage For="() => Input.Serie" class="text-danger" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Posición</label>
+                <InputText @bind-Value="Input.Posicion" class="form-control" />
+                <ValidationMessage For="() => Input.Posicion" class="text-danger" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Rango de medición (mín. - máx.)</label>
+                <div class="d-flex gap-2">
+                    <InputNumber @bind-Value="Input.RangoMedicionMin" class="form-control" placeholder="Mínimo" />
+                    <InputNumber @bind-Value="Input.RangoMedicionMax" class="form-control" placeholder="Máximo" />
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Periodicidad de calibración (meses)</label>
+                <InputNumber @bind-Value="Input.PeriodicidadMeses" class="form-control" />
+                <ValidationMessage For="() => Input.PeriodicidadMeses" class="text-danger" />
+            </div>
+
+            <div class="form-group mb-3 form-check">
+                <InputCheckbox @bind-Value="Input.Activo" class="form-check-input" id="activoCheck" />
+                <label class="form-check-label" for="activoCheck">Instrumento activo</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            <a href="/instrumentos" class="btn btn-outline-secondary">Cancelar</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Instrumento? instrumento;
+    private string? errorMessage;
+    private List<Area> areas = new();
+    private List<TipoInstrumento> tipos = new();
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        areas = await DbContext.Areas.OrderBy(a => a.Nombre).ToListAsync();
+        tipos = await DbContext.TiposInstrumento.OrderBy(t => t.Nombre).ToListAsync();
+        instrumento = await DbContext.Instrumentos.FindAsync(Id);
+
+        if (instrumento is not null && HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            Input = new InputModel
+            {
+                AreaId = instrumento.AreaId,
+                TipoInstrumentoId = instrumento.TipoInstrumentoId,
+                Serie = instrumento.Serie,
+                Posicion = instrumento.Posicion,
+                RangoMedicionMin = instrumento.RangoMedicionMin,
+                RangoMedicionMax = instrumento.RangoMedicionMax,
+                PeriodicidadMeses = instrumento.PeriodicidadMeses,
+                Activo = instrumento.Activo
+            };
+        }
+    }
+
+    private async Task GuardarCambios()
+    {
+        errorMessage = null;
+
+        if (instrumento is null)
+        {
+            return;
+        }
+
+        var serieExiste = await DbContext.Instrumentos.AnyAsync(i => i.Serie == Input.Serie && i.Id != instrumento.Id);
+        if (serieExiste)
+        {
+            errorMessage = "Ya existe otro instrumento con esa serie.";
+            return;
+        }
+
+        instrumento.AreaId = Input.AreaId;
+        instrumento.TipoInstrumentoId = Input.TipoInstrumentoId;
+        instrumento.Serie = Input.Serie;
+        instrumento.Posicion = Input.Posicion;
+        instrumento.RangoMedicionMin = Input.RangoMedicionMin;
+        instrumento.RangoMedicionMax = Input.RangoMedicionMax;
+        instrumento.PeriodicidadMeses = Input.PeriodicidadMeses;
+        instrumento.Activo = Input.Activo;
+
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Instrumento", TipoAccionAuditoria.Editar,
+            $"Se editó el instrumento con serie '{instrumento.Serie}'.");
+
+        NavigationManager.NavigateTo("/instrumentos?Mensaje=Instrumento actualizado correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Debés seleccionar un área.")]
+        public int AreaId { get; set; }
+
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Debés seleccionar un tipo de instrumento.")]
+        public int TipoInstrumentoId { get; set; }
+
+        [Required(ErrorMessage = "La serie es obligatoria.")]
+        [MaxLength(100)]
+        public string Serie { get; set; } = "";
+
+        [MaxLength(100)]
+        public string? Posicion { get; set; }
+
+        public decimal? RangoMedicionMin { get; set; }
+        public decimal? RangoMedicionMax { get; set; }
+
+        [Range(0, 120, ErrorMessage = "La periodicidad debe estar entre 0 y 120 meses.")]
+        public int PeriodicidadMeses { get; set; }
+
+        public bool Activo { get; set; } = true;
+    }
+}

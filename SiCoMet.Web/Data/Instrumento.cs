@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace SiCoMet.Web.Data;
 
+[Index(nameof(Serie), IsUnique = true)]
 public class Instrumento
 {
     public int Id { get; set; }
