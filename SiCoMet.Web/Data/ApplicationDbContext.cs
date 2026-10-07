@@ -12,4 +12,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TipoInstrumento> TiposInstrumento => Set<TipoInstrumento>();
     public DbSet<Instrumento> Instrumentos => Set<Instrumento>();
     public DbSet<Calibracion> Calibraciones => Set<Calibracion>();
+
+    public DbSet<Producto> Productos => Set<Producto>();
+    public DbSet<Tanque> Tanques => Set<Tanque>();
 }
