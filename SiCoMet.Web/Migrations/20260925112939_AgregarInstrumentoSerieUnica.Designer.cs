@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SiCoMet.Web.Data;
@@ -11,9 +12,11 @@ using SiCoMet.Web.Data;
 namespace SiCoMet.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925112939_AgregarInstrumentoSerieUnica")]
+    partial class AgregarInstrumentoSerieUnica
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -340,27 +343,6 @@ namespace SiCoMet.Web.Migrations
                     b.ToTable("Instrumentos");
                 });
 
-            modelBuilder.Entity("SiCoMet.Web.Data.Producto", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Activo")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Productos");
-                });
-
             modelBuilder.Entity("SiCoMet.Web.Data.RegistroAcceso", b =>
                 {
                     b.Property<int>("Id")
@@ -431,76 +413,6 @@ namespace SiCoMet.Web.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("RegistrosAuditoria");
-                });
-
-            modelBuilder.Entity("SiCoMet.Web.Data.Tanque", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("AlturaCoronaConoFondo")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("AlturaFondaje")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("AlturaMaximoLlenado")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("AlturaOperacional")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("AlturaPlatinaMedicion")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("AlturaReferencia")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("CantidadRolos")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("DiametroNominal")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("EntidadAforo")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateOnly?>("FechaUltimaCalibracion")
-                        .HasColumnType("date");
-
-                    b.Property<decimal?>("MasaTechoFlotante")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("Numero")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("NumeroCertificadoAforo")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<int?>("ProductoId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TipoTecho")
-                        .HasColumnType("integer");
-
-                    b.Property<DateOnly?>("VigenciaCertificado")
-                        .HasColumnType("date");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Numero")
-                        .IsUnique();
-
-                    b.HasIndex("ProductoId");
-
-                    b.ToTable("Tanques");
                 });
 
             modelBuilder.Entity("SiCoMet.Web.Data.TipoInstrumento", b =>
@@ -612,15 +524,6 @@ namespace SiCoMet.Web.Migrations
                     b.Navigation("TipoInstrumento");
                 });
 
-            modelBuilder.Entity("SiCoMet.Web.Data.Tanque", b =>
-                {
-                    b.HasOne("SiCoMet.Web.Data.Producto", "Producto")
-                        .WithMany("Tanques")
-                        .HasForeignKey("ProductoId");
-
-                    b.Navigation("Producto");
-                });
-
             modelBuilder.Entity("SiCoMet.Web.Data.Area", b =>
                 {
                     b.Navigation("Instrumentos");
@@ -629,11 +532,6 @@ namespace SiCoMet.Web.Migrations
             modelBuilder.Entity("SiCoMet.Web.Data.Instrumento", b =>
                 {
                     b.Navigation("Calibraciones");
-                });
-
-            modelBuilder.Entity("SiCoMet.Web.Data.Producto", b =>
-                {
-                    b.Navigation("Tanques");
                 });
 
             modelBuilder.Entity("SiCoMet.Web.Data.TipoInstrumento", b =>
