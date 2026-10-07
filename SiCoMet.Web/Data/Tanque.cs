@@ -30,7 +30,7 @@ public class Tanque
     // Solo aplica si TipoTecho == Flotante
     public decimal? MasaTechoFlotante { get; set; }
 
-    public DateTime? FechaUltimaCalibracion { get; set; }
+    public DateOnly? FechaUltimaCalibracion { get; set; }
 
     [MaxLength(100)]
     public string? NumeroCertificadoAforo { get; set; }
@@ -38,7 +38,7 @@ public class Tanque
     [MaxLength(200)]
     public string? EntidadAforo { get; set; }
 
-    public DateTime? VigenciaCertificado { get; set; }
+    public DateOnly? VigenciaCertificado { get; set; }
 
     // Estado derivado (no se guarda)
     public string EstadoCertificado =>
@@ -46,5 +46,5 @@ public class Tanque
             ? "Sin certificado"
             : VigenciaCertificado == null
                 ? "Sin vigencia"
-                : VigenciaCertificado.Value.Date >= DateTime.Today ? "Vigente" : "Vencido";
+                : VigenciaCertificado.Value >= DateOnly.FromDateTime(DateTime.Today) ? "Vigente" : "Vencido";
 }

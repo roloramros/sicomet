@@ -1,0 +1,131 @@
+﻿@page "/tanques"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Tanques</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Tanques de almacenamiento</h1>
+        </div>
+        <a href="/tanques/nuevo" class="btn btn-primary">+ Nuevo tanque</a>
+    </div>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert alert-success">@Mensaje</div>
+    }
+
+    <div class="filtros-form">
+        <input type="text" placeholder="Buscar por número de tanque..." @bind="filtroTexto" @bind:event="oninput" class="form-control" />
+        <select @bind="filtroProductoId" class="form-control">
+            <option value="0">Todos los productos</option>
+            @foreach (var p in productos)
+            {
+                <option value="@p.Id">@p.Nombre</option>
+            }
+        </select>
+        <select @bind="filtroCertificado" class="form-control">
+            <option value="">Todos los certificados</option>
+            <option value="Vigente">Vigente</option>
+            <option value="Vencido">Vencido</option>
+            <option value="Sin certificado">Sin certificado</option>
+        </select>
+    </div>
+
+    @if (tanques is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        var filtrados = tanques
+            .Where(t => string.IsNullOrWhiteSpace(filtroTexto)
+                || t.Numero.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
+            .Where(t => filtroProductoId == 0 || t.ProductoId == filtroProductoId)
+            .Where(t => string.IsNullOrEmpty(filtroCertificado) || t.EstadoCertificado == filtroCertificado)
+            .ToList();
+
+        @if (filtrados.Count == 0)
+        {
+            <p>No hay tanques que coincidan con el filtro.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Producto</th>
+                        <th>Techo</th>
+                        <th>Diámetro (m)</th>
+                        <th>Certificado de aforo</th>
+                        <th>Vigencia</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in filtrados)
+                    {
+                        <tr>
+                            <td>@t.Numero</td>
+                            <td>@(t.Producto?.Nombre ?? "—")</td>
+                            <td>@(t.TipoTecho?.ToString() ?? "—")</td>
+                            <td>@(t.DiametroNominal?.ToString("0.###") ?? "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(t.NumeroCertificadoAforo) ? "—" : t.NumeroCertificadoAforo)</td>
+                            <td>@(t.VigenciaCertificado?.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>
+                                @if (t.EstadoCertificado == "Vigente")
+                                {
+                                    <span class="badge badge-activo">Vigente</span>
+                                }
+                                else if (t.EstadoCertificado == "Vencido")
+                                {
+                                    <span class="badge badge-inactivo">Vencido</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">@t.EstadoCertificado</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="@($"/tanques/editar/{t.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
+                                <a href="@($"/tanques/eliminar/{t.Id}")" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted registro-contador">Mostrando @filtrados.Count de @tanques.Count tanques.</p>
+        }
+    }
+</div>
+
+@code {
+    private List<Tanque>? tanques;
+    private List<Producto> productos = new();
+
+    private string filtroTexto = "";
+    private int filtroProductoId = 0;
+    private string filtroCertificado = "";
+
+    [SupplyParameterFromQuery]
+    private string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await DbContext.Productos.OrderBy(p => p.Nombre).ToListAsync();
+
+        tanques = await DbContext.Tanques
+            .Include(t => t.Producto)
+            .OrderBy(t => t.Numero)
+            .ToListAsync();
+    }
+}

@@ -1,0 +1,83 @@
+﻿@page "/productos"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Productos</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Productos</h1>
+        </div>
+        <a href="/productos/nuevo" class="btn btn-primary">+ Nuevo producto</a>
+    </div>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert alert-success">@Mensaje</div>
+    }
+
+    @if (productos is null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (productos.Count == 0)
+    {
+        <p>No hay productos registrados todavía.</p>
+    }
+    else
+    {
+        <table class="tabla-usuarios">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tanques</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in productos)
+                {
+                    <tr>
+                        <td>@p.Nombre</td>
+                        <td>@p.Tanques.Count</td>
+                        <td>
+                            @if (p.Activo)
+                            {
+                                <span class="badge badge-activo">Activo</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-inactivo">Inactivo</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="@($"/productos/editar/{p.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
+                            <a href="@($"/productos/eliminar/{p.Id}")" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Producto>? productos;
+
+    [SupplyParameterFromQuery]
+    private string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await DbContext.Productos
+            .Include(p => p.Tanques)
+            .OrderBy(p => p.Nombre)
+            .ToListAsync();
+    }
+}

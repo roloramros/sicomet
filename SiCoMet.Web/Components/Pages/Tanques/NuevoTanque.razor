@@ -1,0 +1,230 @@
+﻿@page "/tanques/nuevo"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Nuevo tanque</PageTitle>
+
+<div class="page-container">
+    <a href="/tanques" class="back-link">← Volver a tanques</a>
+    <h1>Nuevo tanque</h1>
+
+    <EditForm Model="Input" OnValidSubmit="Crear" FormName="nuevo-tanque">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="form-group mb-3">
+            <label>Número del tanque</label>
+            <InputText @bind-Value="Input.Numero" class="form-control" />
+            <ValidationMessage For="() => Input.Numero" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Producto</label>
+            <InputSelect @bind-Value="Input.ProductoId" class="form-control">
+                <option value="">-- Sin producto --</option>
+                @foreach (var p in productos)
+                {
+                    <option value="@p.Id">@p.Nombre</option>
+                }
+            </InputSelect>
+        </div>
+
+        <h2 class="h5 mt-4">Dimensiones (metros)</h2>
+
+        <div class="form-group mb-3">
+            <label>Diámetro nominal</label>
+            <InputNumber @bind-Value="Input.DiametroNominal" class="form-control" />
+            <ValidationMessage For="() => Input.DiametroNominal" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Altura de referencia</label>
+            <InputNumber @bind-Value="Input.AlturaReferencia" class="form-control" />
+            <ValidationMessage For="() => Input.AlturaReferencia" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Altura operacional</label>
+            <InputNumber @bind-Value="Input.AlturaOperacional" class="form-control" />
+            <ValidationMessage For="() => Input.AlturaOperacional" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Altura de máximo llenado</label>
+            <InputNumber @bind-Value="Input.AlturaMaximoLlenado" class="form-control" />
+            <ValidationMessage For="() => Input.AlturaMaximoLlenado" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Altura de fondaje</label>
+            <InputNumber @bind-Value="Input.AlturaFondaje" class="form-control" />
+            <ValidationMessage For="() => Input.AlturaFondaje" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Altura de la platina de medición</label>
+            <InputNumber @bind-Value="Input.AlturaPlatinaMedicion" class="form-control" />
+            <ValidationMessage For="() => Input.AlturaPlatinaMedicion" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Altura de la corona del cono del fondo</label>
+            <InputNumber @bind-Value="Input.AlturaCoronaConoFondo" class="form-control" />
+            <ValidationMessage For="() => Input.AlturaCoronaConoFondo" class="text-danger" />
+        </div>
+
+        <h2 class="h5 mt-4">Construcción</h2>
+
+        <div class="form-group mb-3">
+            <label>Tipo de techo</label>
+            <InputSelect @bind-Value="Input.TipoTecho" class="form-control">
+                <option value="">-- Sin especificar --</option>
+                <option value="@TipoTecho.Fijo">Fijo</option>
+                <option value="@TipoTecho.Flotante">Flotante</option>
+            </InputSelect>
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Masa del techo flotante (solo si el techo es flotante)</label>
+            <InputNumber @bind-Value="Input.MasaTechoFlotante" class="form-control" />
+            <ValidationMessage For="() => Input.MasaTechoFlotante" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Cantidad de rolos</label>
+            <InputNumber @bind-Value="Input.CantidadRolos" class="form-control" />
+            <ValidationMessage For="() => Input.CantidadRolos" class="text-danger" />
+        </div>
+
+        <h2 class="h5 mt-4">Calibración y aforo</h2>
+
+        <div class="form-group mb-3">
+            <label>Fecha de última calibración</label>
+            <InputDate @bind-Value="Input.FechaUltimaCalibracion" class="form-control" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Número del certificado de aforo</label>
+            <InputText @bind-Value="Input.NumeroCertificadoAforo" class="form-control" />
+            <ValidationMessage For="() => Input.NumeroCertificadoAforo" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Entidad que realizó el aforo</label>
+            <InputText @bind-Value="Input.EntidadAforo" class="form-control" />
+            <ValidationMessage For="() => Input.EntidadAforo" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Vigencia del certificado</label>
+            <InputDate @bind-Value="Input.VigenciaCertificado" class="form-control" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear tanque</button>
+        <a href="/tanques" class="btn btn-outline-secondary">Cancelar</a>
+    </EditForm>
+</div>
+
+@code {
+    private string? errorMessage;
+    private List<Producto> productos = new();
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await DbContext.Productos.Where(p => p.Activo).OrderBy(p => p.Nombre).ToListAsync();
+    }
+
+    private async Task Crear()
+    {
+        errorMessage = null;
+
+        var existe = await DbContext.Tanques.AnyAsync(t => t.Numero == Input.Numero);
+        if (existe)
+        {
+            errorMessage = "Ya existe un tanque con ese número.";
+            return;
+        }
+
+        var nuevo = new Tanque();
+        nuevo.Numero = Input.Numero;
+        nuevo.ProductoId = Input.ProductoId;
+        nuevo.DiametroNominal = Input.DiametroNominal;
+        nuevo.AlturaReferencia = Input.AlturaReferencia;
+        nuevo.AlturaOperacional = Input.AlturaOperacional;
+        nuevo.AlturaMaximoLlenado = Input.AlturaMaximoLlenado;
+        nuevo.AlturaFondaje = Input.AlturaFondaje;
+        nuevo.AlturaPlatinaMedicion = Input.AlturaPlatinaMedicion;
+        nuevo.AlturaCoronaConoFondo = Input.AlturaCoronaConoFondo;
+        nuevo.TipoTecho = Input.TipoTecho;
+        nuevo.CantidadRolos = Input.CantidadRolos;
+        nuevo.FechaUltimaCalibracion = Input.FechaUltimaCalibracion;
+        nuevo.NumeroCertificadoAforo = Input.NumeroCertificadoAforo;
+        nuevo.EntidadAforo = Input.EntidadAforo;
+        nuevo.VigenciaCertificado = Input.VigenciaCertificado;
+        nuevo.MasaTechoFlotante = Input.TipoTecho == TipoTecho.Flotante ? Input.MasaTechoFlotante : null;
+
+        DbContext.Tanques.Add(nuevo);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Tanque", TipoAccionAuditoria.Crear,
+            $"Se creó el tanque '{nuevo.Numero}'.");
+
+        NavigationManager.NavigateTo("/tanques?Mensaje=Tanque creado correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "El número del tanque es obligatorio.")]
+        [MaxLength(50)]
+        public string Numero { get; set; } = "";
+
+        public int? ProductoId { get; set; }
+
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? DiametroNominal { get; set; }
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? AlturaReferencia { get; set; }
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? AlturaOperacional { get; set; }
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? AlturaMaximoLlenado { get; set; }
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? AlturaFondaje { get; set; }
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? AlturaPlatinaMedicion { get; set; }
+        [Range(0, 9999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? AlturaCoronaConoFondo { get; set; }
+
+        public TipoTecho? TipoTecho { get; set; }
+
+        [Range(0, 9999999, ErrorMessage = "Valor fuera de rango.")]
+        public decimal? MasaTechoFlotante { get; set; }
+
+        [Range(0, 100, ErrorMessage = "La cantidad de rolos debe estar entre 0 y 100.")]
+        public int? CantidadRolos { get; set; }
+
+        public DateOnly? FechaUltimaCalibracion { get; set; }
+
+        [MaxLength(100)]
+        public string? NumeroCertificadoAforo { get; set; }
+
+        [MaxLength(200)]
+        public string? EntidadAforo { get; set; }
+
+        public DateOnly? VigenciaCertificado { get; set; }
+    }
+}

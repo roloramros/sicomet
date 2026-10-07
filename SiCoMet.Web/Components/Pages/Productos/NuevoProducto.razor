@@ -1,0 +1,82 @@
+﻿@page "/productos/nuevo"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+@inject NavigationManager NavigationManager
+
+<PageTitle>SiCoMet - Nuevo producto</PageTitle>
+
+<div class="page-container">
+    <a href="/productos" class="back-link">← Volver a productos</a>
+    <h1>Nuevo producto</h1>
+
+    <EditForm Model="Input" OnValidSubmit="Crear" FormName="nuevo-producto">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="form-group mb-3">
+            <label>Nombre</label>
+            <InputText @bind-Value="Input.Nombre" class="form-control" placeholder="ej. Diésel, Gasolina regular, Fuel oil" />
+            <ValidationMessage For="() => Input.Nombre" class="text-danger" />
+        </div>
+
+        <div class="form-group mb-3 form-check">
+            <InputCheckbox @bind-Value="Input.Activo" class="form-check-input" id="activoCheck" />
+            <label class="form-check-label" for="activoCheck">Producto activo</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear producto</button>
+        <a href="/productos" class="btn btn-outline-secondary">Cancelar</a>
+    </EditForm>
+</div>
+
+@code {
+    private string? errorMessage;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    private async Task Crear()
+    {
+        errorMessage = null;
+
+        var existe = await DbContext.Productos.AnyAsync(p => p.Nombre == Input.Nombre);
+        if (existe)
+        {
+            errorMessage = "Ya existe un producto con ese nombre.";
+            return;
+        }
+
+        var nuevo = new Producto
+        {
+            Nombre = Input.Nombre,
+            Activo = Input.Activo
+        };
+
+        DbContext.Productos.Add(nuevo);
+        await DbContext.SaveChangesAsync();
+
+        await Auditoria.RegistrarAsync("Producto", TipoAccionAuditoria.Crear,
+            $"Se creó el producto '{nuevo.Nombre}'.");
+
+        NavigationManager.NavigateTo("/productos?Mensaje=Producto creado correctamente", forceLoad: true);
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [MaxLength(100)]
+        public string Nombre { get; set; } = "";
+
+        public bool Activo { get; set; } = true;
+    }
+}
