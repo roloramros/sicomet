@@ -25,9 +25,11 @@ public class Tanque
     public decimal? DiametroNominal { get; set; }
 
     public TipoTecho? TipoTecho { get; set; }
+    public TipoFondo? TipoFondo { get; set; }
+
     public int? CantidadRolos { get; set; }
 
-    // Solo aplica si TipoTecho == Flotante
+    // En kilogramos. Solo aplica si TipoTecho == Flotante
     public decimal? MasaTechoFlotante { get; set; }
 
     public DateOnly? FechaUltimaCalibracion { get; set; }
