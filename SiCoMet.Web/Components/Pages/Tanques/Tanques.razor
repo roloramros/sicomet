@@ -64,7 +64,7 @@
                         <th>Número</th>
                         <th>Producto</th>
                         <th>Techo</th>
-                        <th>Diámetro (m)</th>
+                        <th>Altura de referencia (m)</th>
                         <th>Certificado de aforo</th>
                         <th>Vigencia</th>
                         <th>Estado</th>
@@ -78,7 +78,7 @@
                             <td>@t.Numero</td>
                             <td>@(t.Producto?.Nombre ?? "—")</td>
                             <td>@(t.TipoTecho?.ToString() ?? "—")</td>
-                            <td>@(t.DiametroNominal?.ToString("0.###") ?? "—")</td>
+                            <td>@(t.AlturaReferencia?.ToString("0.###") ?? "—")</td>
                             <td>@(string.IsNullOrWhiteSpace(t.NumeroCertificadoAforo) ? "—" : t.NumeroCertificadoAforo)</td>
                             <td>@(t.VigenciaCertificado?.ToString("dd/MM/yyyy") ?? "—")</td>
                             <td>
