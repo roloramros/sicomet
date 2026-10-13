@@ -487,6 +487,9 @@ namespace SiCoMet.Web.Migrations
                     b.Property<int?>("ProductoId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TipoFondo")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("TipoTecho")
                         .HasColumnType("integer");
 
