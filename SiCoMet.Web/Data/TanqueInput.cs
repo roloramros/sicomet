@@ -24,6 +24,7 @@ public class TanqueInput
     public string? AlturaFondaje { get; set; }
     public string? AlturaPlatinaMedicion { get; set; }
     public string? AlturaCoronaConoFondo { get; set; }
+    public string? AlturaTotalPared { get; set; }
 
     public string? TipoTecho { get; set; }
     public string? TipoFondo { get; set; }
@@ -32,6 +33,8 @@ public class TanqueInput
     public string? MasaTechoFlotante { get; set; }
 
     public string? CantidadRolos { get; set; }
+
+    public string? FactorVolumen { get; set; }
 
     public string? FechaUltimaCalibracion { get; set; }
 
@@ -54,10 +57,12 @@ public class TanqueInput
         AlturaFondaje = Fmt(t.AlturaFondaje),
         AlturaPlatinaMedicion = Fmt(t.AlturaPlatinaMedicion),
         AlturaCoronaConoFondo = Fmt(t.AlturaCoronaConoFondo),
+        AlturaTotalPared = Fmt(t.AlturaTotalPared),
         TipoTecho = t.TipoTecho?.ToString(),
         TipoFondo = t.TipoFondo?.ToString(),
         MasaTechoFlotante = Fmt(t.MasaTechoFlotante),
         CantidadRolos = t.CantidadRolos?.ToString(CultureInfo.InvariantCulture),
+        FactorVolumen = Fmt(t.FactorVolumen),
         FechaUltimaCalibracion = t.FechaUltimaCalibracion?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         NumeroCertificadoAforo = t.NumeroCertificadoAforo,
         EntidadAforo = t.EntidadAforo,
@@ -107,6 +112,8 @@ public class TanqueInput
         var aFondaje = Dec(AlturaFondaje, "Altura de fondaje");
         var aPlatina = Dec(AlturaPlatinaMedicion, "Altura de la platina de medición");
         var aCorona = Dec(AlturaCoronaConoFondo, "Altura de la corona del cono del fondo");
+        var aTotal = Dec(AlturaTotalPared, "Altura total de la pared");
+        var factor = Dec(FactorVolumen, "Factor de volumen");
         var masa = Dec(MasaTechoFlotante, "Masa del techo flotante", 99999999);
         var rolos = Ent(CantidadRolos, "Cantidad de rolos", 100);
         var fCal = Fecha(FechaUltimaCalibracion, "Fecha de última calibración");
@@ -133,10 +140,12 @@ public class TanqueInput
         t.AlturaFondaje = aFondaje;
         t.AlturaPlatinaMedicion = aPlatina;
         t.AlturaCoronaConoFondo = aCorona;
+        t.AlturaTotalPared = aTotal;
         t.TipoTecho = techo;
         t.TipoFondo = fondo;
         t.MasaTechoFlotante = techo == global::SiCoMet.Web.Data.TipoTecho.Flotante ? masa : null;
         t.CantidadRolos = rolos;
+        t.FactorVolumen = factor;
         t.FechaUltimaCalibracion = fCal;
         t.NumeroCertificadoAforo = string.IsNullOrWhiteSpace(NumeroCertificadoAforo) ? null : NumeroCertificadoAforo.Trim();
         t.EntidadAforo = string.IsNullOrWhiteSpace(EntidadAforo) ? null : EntidadAforo.Trim();
@@ -146,5 +155,5 @@ public class TanqueInput
         return true;
     }
 
-    private static string? Fmt(decimal? v) => v?.ToString("0.####", CultureInfo.InvariantCulture);
+    private static string? Fmt(decimal? v) => v?.ToString("0.######", CultureInfo.InvariantCulture);
 }

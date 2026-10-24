@@ -22,6 +22,7 @@ public class Tanque
     public decimal? AlturaFondaje { get; set; }
     public decimal? AlturaPlatinaMedicion { get; set; }
     public decimal? AlturaCoronaConoFondo { get; set; }
+    public decimal? AlturaTotalPared { get; set; }
     public decimal? DiametroNominal { get; set; }
 
     public TipoTecho? TipoTecho { get; set; }
@@ -31,6 +32,8 @@ public class Tanque
 
     // En kilogramos. Solo aplica si TipoTecho == Flotante
     public decimal? MasaTechoFlotante { get; set; }
+
+    public decimal? FactorVolumen { get; set; }
 
     public DateOnly? FechaUltimaCalibracion { get; set; }
 
