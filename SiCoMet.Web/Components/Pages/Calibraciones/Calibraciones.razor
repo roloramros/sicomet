@@ -158,8 +158,8 @@
 
 @if (mostrarEnvio)
 {
-    <div class="modal-fondo">
-        <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="titulo-envio">
+    <div class="modal-fondo" style="position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;background:rgba(0,0,0,.45)">
+        <div class="modal-caja" style="width:100%;max-width:540px;padding:1.25rem 1.5rem;background:#fff;border-radius:8px" role="dialog" aria-modal="true" aria-labelledby="titulo-envio">
             <h2 id="titulo-envio">Enviar a calibración</h2>
 
             <p class="text-muted mb-1">@(envioInstrumentos.Count == 1 ? "Instrumento:" : $"Instrumentos ({envioInstrumentos.Count}):")</p>
@@ -202,8 +202,8 @@
 
 @if (mostrarResultado && resFila is not null)
 {
-    <div class="modal-fondo">
-        <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="titulo-resultado">
+    <div class="modal-fondo" style="position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;background:rgba(0,0,0,.45)">
+        <div class="modal-caja" style="width:100%;max-width:540px;padding:1.25rem 1.5rem;background:#fff;border-radius:8px" role="dialog" aria-modal="true" aria-labelledby="titulo-resultado">
             <h2 id="titulo-resultado">Registrar resultado</h2>
 
             <p class="mb-3">
