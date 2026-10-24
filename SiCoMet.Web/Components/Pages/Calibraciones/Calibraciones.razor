@@ -1,0 +1,226 @@
+@page "/calibraciones"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Panel de calibración</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Panel de calibración</h1>
+        </div>
+    </div>
+
+    @if (filas is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        <div class="resumen-estados">
+            @foreach (var t in Tarjetas)
+            {
+                <button type="button"
+                        class="resumen-card @t.Clase @(filtroEstado == t.Clave ? "activa" : "")"
+                        @onclick="() => SeleccionarEstado(t.Clave)">
+                    <span class="resumen-titulo">@t.Titulo</span>
+                    <span class="resumen-numero">@(filas.Count(f => Clave(f) == t.Clave))</span>
+                    <span class="resumen-nota">@t.Nota</span>
+                </button>
+            }
+        </div>
+
+        <div class="filtros-form">
+            <input type="text" placeholder="Buscar por serie o posición..." @bind="filtroTexto" @bind:event="oninput" class="form-control" />
+            <select @bind="filtroAreaId" class="form-control">
+                <option value="0">Todas las áreas</option>
+                @foreach (var a in areas)
+                {
+                    <option value="@a.Id">@a.Nombre</option>
+                }
+            </select>
+            <select @bind="filtroTipoId" class="form-control">
+                <option value="0">Todos los tipos</option>
+                @foreach (var t in tipos)
+                {
+                    <option value="@t.Id">@t.Nombre</option>
+                }
+            </select>
+            @if (filtroEstado != "" || filtroTexto != "" || filtroAreaId != 0 || filtroTipoId != 0)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="LimpiarFiltros">Limpiar filtros</button>
+            }
+        </div>
+
+        var filtrados = filas
+            .Where(f => filtroEstado == "" || Clave(f) == filtroEstado)
+            .Where(f => string.IsNullOrWhiteSpace(filtroTexto)
+                || f.Instrumento.Serie.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase)
+                || (f.Instrumento.Posicion ?? "").Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
+            .Where(f => filtroAreaId == 0 || f.Instrumento.AreaId == filtroAreaId)
+            .Where(f => filtroTipoId == 0 || f.Instrumento.TipoInstrumentoId == filtroTipoId)
+            .ToList();
+
+        @if (filtrados.Count == 0)
+        {
+            <p>No hay instrumentos que coincidan con el filtro.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Serie</th>
+                        <th>Posición</th>
+                        <th>Área</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in filtrados)
+                    {
+                        <tr>
+                            <td>@f.Instrumento.Serie</td>
+                            <td>@f.Instrumento.Posicion</td>
+                            <td>@f.Instrumento.Area.Nombre</td>
+                            <td>@f.Instrumento.TipoInstrumento.Nombre</td>
+                            <td class="nowrap">
+                                <span class="badge @ClaseBadge(f)">@Etiqueta(f)</span>
+                                @if (f.Estado == EstadoCalibracion.Calibrado && f.Ultima?.EstadoTecnico == EstadoTecnico.NoApto)
+                                {
+                                    <span class="badge badge-vencida" title="@f.Ultima.MotivoNoApto">No apto</span>
+                                }
+                            </td>
+                            <td>@Detalle(f)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted registro-contador">Mostrando @filtrados.Count de @filas.Count instrumentos activos.</p>
+        }
+    }
+</div>
+
+@code {
+    private record FilaInstrumento(Instrumento Instrumento, Calibracion? Ultima, EstadoCalibracion Estado, int? DiasParaVencer);
+
+    private static readonly (string Clave, string Titulo, string Clase, string Nota)[] Tarjetas =
+    {
+        ("vencida", "Vencidos", "card-vencida", "o sin calibraciones"),
+        ("porvencer", "Por vencer", "card-porvencer", $"en {CalibracionEstadoHelper.DiasAvisoVencimiento} días o menos"),
+        ("taller", "En taller", "card-taller", "esperando resultado"),
+        ("vigente", "Vigentes", "card-vigente", $"con más de {CalibracionEstadoHelper.DiasAvisoVencimiento} días")
+    };
+
+    private List<FilaInstrumento>? filas;
+    private List<Area> areas = new();
+    private List<TipoInstrumento> tipos = new();
+    private DateOnly hoy;
+
+    private string filtroEstado = "";
+    private string filtroTexto = "";
+    private int filtroAreaId = 0;
+    private int filtroTipoId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hoy = DateOnly.FromDateTime(DateTime.Today);
+
+        areas = await DbContext.Areas.AsNoTracking().OrderBy(a => a.Nombre).ToListAsync();
+        tipos = await DbContext.TiposInstrumento.AsNoTracking().OrderBy(t => t.Nombre).ToListAsync();
+
+        var instrumentos = await DbContext.Instrumentos
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(i => i.Activo)
+            .Include(i => i.Area)
+            .Include(i => i.TipoInstrumento)
+            .Include(i => i.Calibraciones)
+            .ToListAsync();
+
+        filas = instrumentos
+            .Select(i =>
+            {
+                var ultima = CalibracionEstadoHelper.Ultima(i.Calibraciones);
+                return new FilaInstrumento(
+                    i,
+                    ultima,
+                    CalibracionEstadoHelper.Calcular(ultima, hoy),
+                    CalibracionEstadoHelper.DiasParaVencer(ultima, hoy));
+            })
+            .OrderBy(f => Prioridad(f))
+            .ThenBy(f => f.Estado == EstadoCalibracion.EnTaller
+                ? f.Ultima!.FechaEnvioTaller
+                : f.Ultima?.FechaProximaCalibracion ?? DateOnly.MinValue)
+            .ThenBy(f => f.Instrumento.Serie)
+            .ToList();
+    }
+
+    private static string Clave(FilaInstrumento f) => f.Estado switch
+    {
+        EstadoCalibracion.Vencida => "vencida",
+        EstadoCalibracion.EnTaller => "taller",
+        _ => f.DiasParaVencer is not null ? "porvencer" : "vigente"
+    };
+
+    private static int Prioridad(FilaInstrumento f) => Clave(f) switch
+    {
+        "vencida" => 0,
+        "porvencer" => 1,
+        "taller" => 2,
+        _ => 3
+    };
+
+    private void SeleccionarEstado(string clave) => filtroEstado = filtroEstado == clave ? "" : clave;
+
+    private void LimpiarFiltros()
+    {
+        filtroEstado = "";
+        filtroTexto = "";
+        filtroAreaId = 0;
+        filtroTipoId = 0;
+    }
+
+    private static string ClaseBadge(FilaInstrumento f) => "badge-" + Clave(f);
+
+    private static string Etiqueta(FilaInstrumento f) => Clave(f) switch
+    {
+        "vencida" => "Vencida",
+        "taller" => "En taller",
+        "porvencer" => f.DiasParaVencer switch
+        {
+            0 => "Vence hoy",
+            1 => "Vence en 1 día",
+            var d => $"Vence en {d} días"
+        },
+        _ => "Calibrado"
+    };
+
+    private string Detalle(FilaInstrumento f)
+    {
+        switch (f.Estado)
+        {
+            case EstadoCalibracion.EnTaller:
+                var dias = hoy.DayNumber - f.Ultima!.FechaEnvioTaller.DayNumber;
+                return $"Enviado el {f.Ultima.FechaEnvioTaller:dd/MM/yyyy} ({dias} {(dias == 1 ? "día" : "días")} en taller)";
+
+            case EstadoCalibracion.Vencida:
+                if (f.Ultima is null)
+                    return "Sin calibraciones registradas";
+                return f.Ultima.FechaProximaCalibracion is null
+                    ? "Sin fecha de vencimiento registrada"
+                    : $"Venció el {f.Ultima.FechaProximaCalibracion:dd/MM/yyyy}";
+
+            default:
+                var tecnico = f.Ultima!.EstadoTecnico == EstadoTecnico.NoApto ? "No apto" : "Dentro de límites";
+                return $"Próxima: {f.Ultima.FechaProximaCalibracion:dd/MM/yyyy} · {tecnico}";
+        }
+    }
+}

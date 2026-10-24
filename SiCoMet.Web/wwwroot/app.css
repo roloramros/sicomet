@@ -204,3 +204,64 @@ h1:focus {
 .nowrap {
     white-space: nowrap;
 }
+.resumen-estados {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.resumen-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.resumen-card.activa {
+    border-color: currentColor;
+}
+
+.resumen-titulo {
+    font-size: 0.85rem;
+}
+
+.resumen-numero {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.resumen-nota {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.card-vencida,
+.badge-vencida {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.card-porvencer,
+.badge-porvencer {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.card-taller,
+.badge-taller {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.card-vigente,
+.badge-vigente {
+    background-color: #d4edda;
+    color: #155724;
+}
