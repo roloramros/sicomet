@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @using SiCoMet.Web.Data
 @inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
 
 <PageTitle>SiCoMet - Panel de calibración</PageTitle>
 
@@ -15,6 +16,15 @@
             <h1>Panel de calibración</h1>
         </div>
     </div>
+
+    @if (mensajeOk is not null)
+    {
+        <div class="alert alert-success">@mensajeOk</div>
+    }
+    @if (mensajeError is not null)
+    {
+        <div class="alert alert-danger">@mensajeError</div>
+    }
 
     @if (filas is null)
     {
@@ -57,6 +67,15 @@
             }
         </div>
 
+        @if (seleccion.Count > 0)
+        {
+            <div class="barra-seleccion">
+                <span>@seleccion.Count @(seleccion.Count == 1 ? "seleccionado" : "seleccionados")</span>
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AbrirEnvioSeleccion">Enviar a calibración</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LimpiarSeleccion">Quitar selección</button>
+            </div>
+        }
+
         var filtrados = filas
             .Where(f => filtroEstado == "" || Clave(f) == filtroEstado)
             .Where(f => string.IsNullOrWhiteSpace(filtroTexto)
@@ -64,6 +83,11 @@
                 || (f.Instrumento.Posicion ?? "").Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
             .Where(f => filtroAreaId == 0 || f.Instrumento.AreaId == filtroAreaId)
             .Where(f => filtroTipoId == 0 || f.Instrumento.TipoInstrumentoId == filtroTipoId)
+            .ToList();
+
+        var seleccionables = filtrados
+            .Where(f => f.Estado != EstadoCalibracion.EnTaller)
+            .Select(f => f.Instrumento.Id)
             .ToList();
 
         @if (filtrados.Count == 0)
@@ -75,18 +99,32 @@
             <table class="tabla-usuarios">
                 <thead>
                     <tr>
+                        <th>
+                            <input type="checkbox" aria-label="Seleccionar todos los visibles"
+                                   checked="@(seleccionables.Count > 0 && seleccionables.All(seleccion.Contains))"
+                                   @onchange="e => SeleccionarTodos(seleccionables, e)" />
+                        </th>
                         <th>Serie</th>
                         <th>Posición</th>
                         <th>Área</th>
                         <th>Tipo</th>
                         <th>Estado</th>
                         <th>Detalle</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var f in filtrados)
                     {
                         <tr>
+                            <td>
+                                @if (f.Estado != EstadoCalibracion.EnTaller)
+                                {
+                                    <input type="checkbox" aria-label="@($"Seleccionar {f.Instrumento.Serie}")"
+                                           checked="@seleccion.Contains(f.Instrumento.Id)"
+                                           @onchange="e => AlternarSeleccion(f.Instrumento.Id, e)" />
+                                }
+                            </td>
                             <td>@f.Instrumento.Serie</td>
                             <td>@f.Instrumento.Posicion</td>
                             <td>@f.Instrumento.Area.Nombre</td>
@@ -99,6 +137,16 @@
                                 }
                             </td>
                             <td>@Detalle(f)</td>
+                            <td class="nowrap">
+                                @if (f.Estado == EstadoCalibracion.EnTaller)
+                                {
+                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => AbrirResultado(f)">Registrar resultado</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AbrirEnvioFila(f)">Enviar a calibración</button>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -107,6 +155,127 @@
         }
     }
 </div>
+
+@if (mostrarEnvio)
+{
+    <div class="modal-fondo">
+        <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="titulo-envio">
+            <h2 id="titulo-envio">Enviar a calibración</h2>
+
+            <p class="text-muted mb-1">@(envioInstrumentos.Count == 1 ? "Instrumento:" : $"Instrumentos ({envioInstrumentos.Count}):")</p>
+            <div class="lista-seleccion">
+                @foreach (var f in envioInstrumentos)
+                {
+                    <div>@f.Instrumento.Serie · @f.Instrumento.TipoInstrumento.Nombre · @f.Instrumento.Area.Nombre</div>
+                }
+            </div>
+
+            @if (errores.Count > 0)
+            {
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach (var e in errores)
+                        {
+                            <li>@e</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="form-group mb-3">
+                <label>Fecha de envío al taller</label>
+                <input type="date" class="form-control" @bind="envioFecha" @bind:format="yyyy-MM-dd" max="@HoyIso" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Observaciones (opcional)</label>
+                <textarea class="form-control" rows="2" maxlength="500" @bind="envioObservaciones" @bind:event="oninput"></textarea>
+            </div>
+
+            <div class="modal-acciones">
+                <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModales" disabled="@guardando">Cancelar</button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmarEnvio" disabled="@guardando">Enviar a calibración</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarResultado && resFila is not null)
+{
+    <div class="modal-fondo">
+        <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="titulo-resultado">
+            <h2 id="titulo-resultado">Registrar resultado</h2>
+
+            <p class="mb-3">
+                <strong>@resFila.Instrumento.Serie</strong> · @resFila.Instrumento.TipoInstrumento.Nombre · @resFila.Instrumento.Area.Nombre<br />
+                <span class="text-muted">Enviado el @(resFila.Ultima!.FechaEnvioTaller.ToString("dd/MM/yyyy"))</span>
+            </p>
+
+            @if (errores.Count > 0)
+            {
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach (var e in errores)
+                        {
+                            <li>@e</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="form-group mb-3">
+                <label>Fecha de calibración</label>
+                <input type="date" class="form-control" @bind="resFechaCalibracion" @bind:format="yyyy-MM-dd" @bind:after="RecalcularProxima" max="@HoyIso" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Próxima calibración</label>
+                <input type="date" class="form-control" @bind="resFechaProxima" @bind:format="yyyy-MM-dd" @bind:after="MarcarProximaEditada" />
+                <div class="form-text">
+                    @if (resFila.Instrumento.PeriodicidadMeses > 0)
+                    {
+                        <span>Se calcula con la periodicidad del instrumento (@resFila.Instrumento.PeriodicidadMeses meses); puede modificarla.</span>
+                    }
+                    else
+                    {
+                        <span>El instrumento no tiene periodicidad definida; indique la fecha manualmente.</span>
+                    }
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Estado técnico</label>
+                <select class="form-control" @bind="resEstado">
+                    <option value="@EstadoTecnico.DentroDeLimites">Dentro de límites</option>
+                    <option value="@EstadoTecnico.NoApto">No apto</option>
+                </select>
+            </div>
+
+            @if (resEstado == EstadoTecnico.NoApto)
+            {
+                <div class="form-group mb-3">
+                    <label>Motivo de no conformidad</label>
+                    <textarea class="form-control" rows="2" maxlength="500" @bind="resMotivo" @bind:event="oninput"></textarea>
+                </div>
+            }
+
+            <div class="form-group mb-3">
+                <label>Número de certificado (opcional)</label>
+                <input type="text" class="form-control" maxlength="100" @bind="resCertificado" @bind:event="oninput" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label>Observaciones (opcional)</label>
+                <textarea class="form-control" rows="2" maxlength="500" @bind="resObservaciones" @bind:event="oninput"></textarea>
+            </div>
+
+            <div class="modal-acciones">
+                <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModales" disabled="@guardando">Cancelar</button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmarResultado" disabled="@guardando">Guardar resultado</button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private record FilaInstrumento(Instrumento Instrumento, Calibracion? Ultima, EstadoCalibracion Estado, int? DiasParaVencer);
@@ -129,12 +298,37 @@
     private int filtroAreaId = 0;
     private int filtroTipoId = 0;
 
+    private HashSet<int> seleccion = new();
+    private string? mensajeOk;
+    private string? mensajeError;
+    private List<string> errores = new();
+    private bool guardando;
+
+    private bool mostrarEnvio;
+    private List<FilaInstrumento> envioInstrumentos = new();
+    private DateOnly? envioFecha;
+    private string? envioObservaciones;
+
+    private bool mostrarResultado;
+    private FilaInstrumento? resFila;
+    private DateOnly? resFechaCalibracion;
+    private DateOnly? resFechaProxima;
+    private EstadoTecnico resEstado = EstadoTecnico.DentroDeLimites;
+    private string? resMotivo;
+    private string? resCertificado;
+    private string? resObservaciones;
+    private bool proximaEditada;
+
     protected override async Task OnInitializedAsync()
     {
-        hoy = DateOnly.FromDateTime(DateTime.Today);
-
         areas = await DbContext.Areas.AsNoTracking().OrderBy(a => a.Nombre).ToListAsync();
         tipos = await DbContext.TiposInstrumento.AsNoTracking().OrderBy(t => t.Nombre).ToListAsync();
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        hoy = DateOnly.FromDateTime(DateTime.Today);
 
         var instrumentos = await DbContext.Instrumentos
             .AsNoTracking()
@@ -161,6 +355,10 @@
                 : f.Ultima?.FechaProximaCalibracion ?? DateOnly.MinValue)
             .ThenBy(f => f.Instrumento.Serie)
             .ToList();
+
+        // Quita de la selección lo que ya no se puede enviar (p. ej. quedó en taller).
+        var enviables = filas.Where(f => f.Estado != EstadoCalibracion.EnTaller).Select(f => f.Instrumento.Id);
+        seleccion.IntersectWith(enviables);
     }
 
     private static string Clave(FilaInstrumento f) => f.Estado switch
@@ -187,6 +385,20 @@
         filtroAreaId = 0;
         filtroTipoId = 0;
     }
+
+    private void AlternarSeleccion(int id, ChangeEventArgs e)
+    {
+        if (e.Value is true) seleccion.Add(id);
+        else seleccion.Remove(id);
+    }
+
+    private void SeleccionarTodos(List<int> ids, ChangeEventArgs e)
+    {
+        if (e.Value is true) seleccion.UnionWith(ids);
+        else seleccion.ExceptWith(ids);
+    }
+
+    private void LimpiarSeleccion() => seleccion.Clear();
 
     private static string ClaseBadge(FilaInstrumento f) => "badge-" + Clave(f);
 
@@ -223,4 +435,210 @@
                 return $"Próxima: {f.Ultima.FechaProximaCalibracion:dd/MM/yyyy} · {tecnico}";
         }
     }
+
+    // ---------- Enviar a calibración ----------
+
+    private string HoyIso => hoy.ToString("yyyy-MM-dd");
+
+    private void AbrirEnvioSeleccion() => AbrirEnvio(seleccion.ToList());
+
+    private void AbrirEnvioFila(FilaInstrumento f) => AbrirEnvio(new[] { f.Instrumento.Id });
+
+    private void AbrirEnvio(IEnumerable<int> ids)
+    {
+        var set = ids.ToHashSet();
+        envioInstrumentos = filas!
+            .Where(f => set.Contains(f.Instrumento.Id) && f.Estado != EstadoCalibracion.EnTaller)
+            .ToList();
+        if (envioInstrumentos.Count == 0) return;
+
+        envioFecha = hoy;
+        envioObservaciones = null;
+        errores.Clear();
+        mensajeOk = null;
+        mensajeError = null;
+        mostrarResultado = false;
+        mostrarEnvio = true;
+    }
+
+    private async Task ConfirmarEnvio()
+    {
+        errores.Clear();
+
+        if (envioFecha is null)
+            errores.Add("Indique la fecha de envío.");
+        else if (envioFecha.Value > hoy)
+            errores.Add("La fecha de envío no puede ser futura.");
+
+        if ((envioObservaciones?.Length ?? 0) > 500)
+            errores.Add("Las observaciones no pueden superar los 500 caracteres.");
+
+        if (errores.Count > 0) return;
+
+        guardando = true;
+        try
+        {
+            var ids = envioInstrumentos.Select(f => f.Instrumento.Id).ToList();
+
+            // Evita duplicar el envío si otro usuario ya lo registró mientras tanto.
+            var yaEnTaller = await DbContext.Calibraciones
+                .Where(c => ids.Contains(c.InstrumentoId) && c.FechaCalibracion == null)
+                .Select(c => c.Instrumento.Serie)
+                .ToListAsync();
+
+            if (yaEnTaller.Count > 0)
+            {
+                mensajeError = $"Ya estaban en taller: {string.Join(", ", yaEnTaller)}. No se registró ningún envío; se actualizó la lista.";
+                mostrarEnvio = false;
+                await CargarAsync();
+                return;
+            }
+
+            var observaciones = string.IsNullOrWhiteSpace(envioObservaciones) ? null : envioObservaciones.Trim();
+            foreach (var id in ids)
+            {
+                DbContext.Calibraciones.Add(new Calibracion
+                {
+                    InstrumentoId = id,
+                    FechaEnvioTaller = envioFecha!.Value,
+                    Observaciones = observaciones
+                });
+            }
+            await DbContext.SaveChangesAsync();
+
+            var series = string.Join(", ", envioInstrumentos.Select(f => f.Instrumento.Serie));
+            await Auditoria.RegistrarAsync(
+                "Calibración",
+                TipoAccionAuditoria.Crear,
+                Truncar($"Envió a calibración ({ids.Count}) el {envioFecha.Value:dd/MM/yyyy}: {series}"));
+
+            mensajeOk = ids.Count == 1
+                ? $"Instrumento {envioInstrumentos[0].Instrumento.Serie} enviado a calibración."
+                : $"{ids.Count} instrumentos enviados a calibración.";
+
+            seleccion.ExceptWith(ids);
+            mostrarEnvio = false;
+            await CargarAsync();
+        }
+        catch (DbUpdateException)
+        {
+            errores.Add("No se pudo guardar el envío. Intente de nuevo.");
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    // ---------- Registrar resultado ----------
+
+    private void AbrirResultado(FilaInstrumento f)
+    {
+        resFila = f;
+        resFechaCalibracion = hoy;
+        resEstado = EstadoTecnico.DentroDeLimites;
+        resMotivo = null;
+        resCertificado = null;
+        resObservaciones = f.Ultima?.Observaciones;
+        proximaEditada = false;
+        resFechaProxima = null;
+        RecalcularProxima();
+
+        errores.Clear();
+        mensajeOk = null;
+        mensajeError = null;
+        mostrarEnvio = false;
+        mostrarResultado = true;
+    }
+
+    private void RecalcularProxima()
+    {
+        if (proximaEditada || resFila is null) return;
+
+        resFechaProxima = resFechaCalibracion is not null && resFila.Instrumento.PeriodicidadMeses > 0
+            ? resFechaCalibracion.Value.AddMonths(resFila.Instrumento.PeriodicidadMeses)
+            : null;
+    }
+
+    private void MarcarProximaEditada() => proximaEditada = true;
+
+    private async Task ConfirmarResultado()
+    {
+        if (resFila?.Ultima is null) return;
+        errores.Clear();
+
+        var envio = resFila.Ultima.FechaEnvioTaller;
+
+        if (resFechaCalibracion is null)
+            errores.Add("Indique la fecha de calibración.");
+        else if (resFechaCalibracion.Value > hoy)
+            errores.Add("La fecha de calibración no puede ser futura.");
+        else if (resFechaCalibracion.Value < envio)
+            errores.Add($"La fecha de calibración no puede ser anterior al envío ({envio:dd/MM/yyyy}).");
+
+        if (resFechaProxima is null)
+            errores.Add("Indique la fecha de la próxima calibración.");
+        else if (resFechaCalibracion is not null && resFechaProxima.Value <= resFechaCalibracion.Value)
+            errores.Add("La próxima calibración debe ser posterior a la fecha de calibración.");
+
+        if (resEstado == EstadoTecnico.NoApto && string.IsNullOrWhiteSpace(resMotivo))
+            errores.Add("Indique el motivo cuando el instrumento no es apto.");
+
+        if ((resMotivo?.Length ?? 0) > 500 || (resObservaciones?.Length ?? 0) > 500)
+            errores.Add("El motivo y las observaciones no pueden superar los 500 caracteres.");
+
+        if ((resCertificado?.Length ?? 0) > 100)
+            errores.Add("El número de certificado no puede superar los 100 caracteres.");
+
+        if (errores.Count > 0) return;
+
+        guardando = true;
+        try
+        {
+            var calibracion = await DbContext.Calibraciones.FirstOrDefaultAsync(c => c.Id == resFila.Ultima.Id);
+            if (calibracion is null || calibracion.FechaCalibracion is not null)
+            {
+                mensajeError = "Este instrumento ya no está en taller. Se actualizó la lista.";
+                mostrarResultado = false;
+                await CargarAsync();
+                return;
+            }
+
+            calibracion.FechaCalibracion = resFechaCalibracion;
+            calibracion.FechaProximaCalibracion = resFechaProxima;
+            calibracion.EstadoTecnico = resEstado;
+            calibracion.MotivoNoApto = resEstado == EstadoTecnico.NoApto ? resMotivo!.Trim() : null;
+            calibracion.CertificadoNumero = string.IsNullOrWhiteSpace(resCertificado) ? null : resCertificado.Trim();
+            calibracion.Observaciones = string.IsNullOrWhiteSpace(resObservaciones) ? null : resObservaciones.Trim();
+            await DbContext.SaveChangesAsync();
+
+            var serie = resFila.Instrumento.Serie;
+            var resultado = resEstado == EstadoTecnico.NoApto ? "No apto" : "Dentro de límites";
+            await Auditoria.RegistrarAsync(
+                "Calibración",
+                TipoAccionAuditoria.Editar,
+                Truncar($"Registró resultado de calibración de {serie}: {resultado}, calibrado el {resFechaCalibracion:dd/MM/yyyy}, próxima {resFechaProxima:dd/MM/yyyy}"));
+
+            mensajeOk = $"Resultado de {serie} registrado ({resultado}).";
+            mostrarResultado = false;
+            await CargarAsync();
+        }
+        catch (DbUpdateException)
+        {
+            errores.Add("No se pudo guardar el resultado. Intente de nuevo.");
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private void CerrarModales()
+    {
+        mostrarEnvio = false;
+        mostrarResultado = false;
+        errores.Clear();
+    }
+
+    private static string Truncar(string texto) => texto.Length <= 500 ? texto : texto[..497] + "...";
 }
