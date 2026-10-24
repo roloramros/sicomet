@@ -459,6 +459,9 @@ namespace SiCoMet.Web.Migrations
                     b.Property<decimal?>("AlturaReferencia")
                         .HasColumnType("numeric");
 
+                    b.Property<decimal?>("AlturaTotalPared")
+                        .HasColumnType("numeric");
+
                     b.Property<int?>("CantidadRolos")
                         .HasColumnType("integer");
 
@@ -468,6 +471,9 @@ namespace SiCoMet.Web.Migrations
                     b.Property<string>("EntidadAforo")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("FactorVolumen")
+                        .HasColumnType("numeric");
 
                     b.Property<DateOnly?>("FechaUltimaCalibracion")
                         .HasColumnType("date");
