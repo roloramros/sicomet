@@ -319,8 +319,15 @@
     private string? resObservaciones;
     private bool proximaEditada;
 
+    [Parameter, SupplyParameterFromQuery(Name = "estado")]
+    public string? EstadoInicial { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        // Permite llegar desde el inicio con el filtro ya aplicado (?estado=vencida, etc.).
+        if (EstadoInicial is not null && Tarjetas.Any(t => t.Clave == EstadoInicial))
+            filtroEstado = EstadoInicial;
+
         areas = await DbContext.Areas.AsNoTracking().OrderBy(a => a.Nombre).ToListAsync();
         tipos = await DbContext.TiposInstrumento.AsNoTracking().OrderBy(t => t.Nombre).ToListAsync();
         await CargarAsync();

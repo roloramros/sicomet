@@ -1,18 +1,185 @@
-﻿@page "/dashboard"
+@page "/dashboard"
 @attribute [Authorize]
+@rendermode InteractiveServer
+@using System.Globalization
 @using Microsoft.AspNetCore.Authorization
+@using SiCoMet.Web.Data
+@inject DashboardService Dashboard
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>SiCoMet - Inicio</PageTitle>
 
-<div class="dashboard-container">
+<div class="dashboard-container dashboard-ancho">
     <div class="dashboard-header">
         <div>
             <span class="text-muted">Panel principal</span>
             <h1>Inicio</h1>
         </div>
+        <div class="text-end">
+            @if (resumen is not null)
+            {
+                <small class="text-muted d-block">Actualizado: @resumen.Generado.ToString("dd/MM/yyyy HH:mm")</small>
+            }
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CargarAsync" disabled="@cargando">
+                @(cargando ? "Actualizando..." : "Actualizar")
+            </button>
+        </div>
     </div>
 
-    <div class="alert alert-info">
-        Este es el panel principal de SiCoMet. Desde el menú lateral podrás acceder a las funcionalidades disponibles según tu rol.
-    </div>
+    @if (error is not null)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    else if (resumen is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        <div class="resumen-estados">
+            @Tarjeta("Instrumentos activos", resumen.Total, "card-neutro", "en el sistema", "")
+            @Tarjeta("Vigentes", resumen.Vigentes, "card-vigente", NotaVigente, "vigente")
+            @Tarjeta("Por vencer", resumen.PorVencer, "card-porvencer", NotaPorVencer, "porvencer")
+            @Tarjeta("En taller", resumen.EnTaller, "card-taller", "esperando resultado", "taller")
+            @Tarjeta("Vencidos", resumen.Vencidos, "card-vencida", "o sin calibraciones", "vencida")
+            @Tarjeta("No aptos", resumen.NoAptos, "card-vencida", "resultado de la última calibración", "")
+        </div>
+
+        <div class="dashboard-columnas">
+            <section class="dashboard-bloque">
+                <h2>Vencen en los próximos @CalibracionEstadoHelper.DiasAvisoVencimiento días (@resumen.PorVencer)</h2>
+                @Tabla(resumen.ProximosAVencer, "Vence en", "Ningún instrumento vence próximamente.")
+                @if (resumen.PorVencer > resumen.ProximosAVencer.Count)
+                {
+                    <small class="text-muted">Se muestran los @resumen.ProximosAVencer.Count más próximos.</small>
+                }
+            </section>
+
+            <section class="dashboard-bloque">
+                <h2>Vencidos (@resumen.Vencidos)</h2>
+                @Tabla(resumen.VencidosMasAtrasados, "Atraso", "No hay instrumentos vencidos.")
+                @if (resumen.Vencidos > resumen.VencidosMasAtrasados.Count)
+                {
+                    <small class="text-muted">Se muestran los @resumen.VencidosMasAtrasados.Count con mayor atraso.</small>
+                }
+            </section>
+        </div>
+
+        <section class="dashboard-bloque">
+            <h2>Cumplimiento por área</h2>
+            @if (resumen.PorArea.Count == 0)
+            {
+                <p class="text-muted mb-0">Aún no hay instrumentos registrados.</p>
+            }
+            else
+            {
+                <div class="leyenda-areas">
+                    <span class="badge badge-vigente">Calibrados</span>
+                    <span class="badge badge-taller">En taller</span>
+                    <span class="badge badge-vencida">Vencidos</span>
+                </div>
+                @foreach (var a in resumen.PorArea)
+                {
+                    <div class="area-fila">
+                        <div class="area-texto">
+                            <span>@a.Area</span>
+                            <span class="text-muted">@a.Vigentes de @a.Total calibrados (@Pct(a.Vigentes, a.Total, "0")%)</span>
+                        </div>
+                        <div class="barra-area">
+                            <div class="seg-vigente" style="width:@Pct(a.Vigentes, a.Total)%"></div>
+                            <div class="seg-taller" style="width:@Pct(a.EnTaller, a.Total)%"></div>
+                            <div class="seg-vencida" style="width:@Pct(a.Vencidos, a.Total)%"></div>
+                        </div>
+                    </div>
+                }
+            }
+        </section>
+    }
 </div>
+
+@code {
+    private ResumenDashboard? resumen;
+    private bool cargando;
+    private bool esAdmin;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        esAdmin = auth.User.IsInRole(Roles.Administrador);
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        cargando = true;
+        error = null;
+        try
+        {
+            resumen = await Dashboard.ObtenerResumenAsync();
+        }
+        catch (Exception ex)
+        {
+            error = "No se pudo cargar el resumen: " + ex.Message;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    // Cultura invariante: con coma decimal el width de CSS se rompería.
+    private static string Pct(int parte, int total, string formato = "0.##") =>
+        total == 0 ? "0" : (100.0 * parte / total).ToString(formato, CultureInfo.InvariantCulture);
+
+    private static readonly string NotaVigente = $"con más de {CalibracionEstadoHelper.DiasAvisoVencimiento} días";
+    private static readonly string NotaPorVencer = $"en {CalibracionEstadoHelper.DiasAvisoVencimiento} días o menos";
+
+    // El panel /calibraciones es solo para Administrador: al resto se le muestra la tarjeta sin enlace.
+    private RenderFragment Tarjeta(string titulo, int valor, string clase, string nota, string estado) => @<text>
+        @if (esAdmin && estado != "")
+        {
+            <a href="@("/calibraciones?estado=" + estado)" class="resumen-card resumen-enlace @clase">
+                <span class="resumen-titulo">@titulo</span>
+                <span class="resumen-numero">@valor</span>
+                <span class="resumen-nota">@nota</span>
+            </a>
+        }
+        else
+        {
+            <div class="resumen-card resumen-estatica @clase">
+                <span class="resumen-titulo">@titulo</span>
+                <span class="resumen-numero">@valor</span>
+                <span class="resumen-nota">@nota</span>
+            </div>
+        }
+    </text>;
+
+    private RenderFragment Tabla(List<AlertaInstrumento> items, string colDias, string vacio) => @<text>
+        @if (items.Count == 0)
+        {
+            <p class="text-muted">@vacio</p>
+        }
+        else
+        {
+            <div class="tabla-scroll">
+                <table class="tabla-usuarios">
+                    <thead>
+                        <tr><th>Serie</th><th>Tipo</th><th>Área</th><th>@colDias</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var i in items)
+                        {
+                            <tr>
+                                <td>@i.Serie</td>
+                                <td>@i.Tipo</td>
+                                <td>@i.Area</td>
+                                <td class="nowrap">@(i.Dias is null ? "Sin calibración" : i.Dias + " d")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </text>;
+}

@@ -317,3 +317,80 @@ h1:focus {
     border-radius: 6px;
     font-size: 0.9rem;
 }
+
+/* ===== Dashboard de inicio ===== */
+.dashboard-container.dashboard-ancho {
+    max-width: 1000px;
+}
+
+.card-neutro {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
+
+a.resumen-card.resumen-enlace {
+    text-decoration: none;
+}
+
+a.resumen-card.resumen-enlace:hover {
+    border-color: currentColor;
+}
+
+.resumen-card.resumen-estatica {
+    cursor: default;
+}
+
+.dashboard-columnas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dashboard-bloque {
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background-color: #fff;
+}
+
+.dashboard-bloque h2 {
+    font-size: 1.05rem;
+    color: #495057;
+    margin-bottom: 0.75rem;
+}
+
+.tabla-scroll {
+    overflow-x: auto;
+}
+
+.leyenda-areas {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.area-fila {
+    margin-bottom: 0.9rem;
+}
+
+.area-texto {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+}
+
+.barra-area {
+    display: flex;
+    height: 14px;
+    overflow: hidden;
+    border-radius: 7px;
+    background-color: #e9ecef;
+}
+
+.seg-vigente { background-color: #28a745; }
+.seg-taller { background-color: #3d8bfd; }
+.seg-vencida { background-color: #dc3545; }
