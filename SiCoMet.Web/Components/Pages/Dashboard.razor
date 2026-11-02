@@ -4,7 +4,7 @@
 @using System.Globalization
 @using Microsoft.AspNetCore.Authorization
 @using SiCoMet.Web.Data
-@inject DashboardService Dashboard
+@inject DashboardService ResumenService
 @inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>SiCoMet - Inicio</PageTitle>
@@ -116,7 +116,7 @@
         error = null;
         try
         {
-            resumen = await Dashboard.ObtenerResumenAsync();
+            resumen = await ResumenService.ObtenerResumenAsync();
         }
         catch (Exception ex)
         {
