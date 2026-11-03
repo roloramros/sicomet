@@ -36,6 +36,7 @@
     }
     else
     {
+        <h2 class="dashboard-subtitulo">Instrumentos</h2>
         <div class="resumen-estados">
             @Tarjeta("Instrumentos activos", resumen.Total, "card-neutro", "en el sistema", "")
             @Tarjeta("Vigentes", resumen.Vigentes, "card-vigente", NotaVigente, "vigente")
@@ -43,26 +44,6 @@
             @Tarjeta("En taller", resumen.EnTaller, "card-taller", "esperando resultado", "taller")
             @Tarjeta("Vencidos", resumen.Vencidos, "card-vencida", "o sin calibraciones", "vencida")
             @Tarjeta("No aptos", resumen.NoAptos, "card-vencida", "resultado de la última calibración", "")
-        </div>
-
-        <div class="dashboard-columnas">
-            <section class="dashboard-bloque">
-                <h2>Vencen en los próximos @CalibracionEstadoHelper.DiasAvisoVencimiento días (@resumen.PorVencer)</h2>
-                @Tabla(resumen.ProximosAVencer, "Vence en", "Ningún instrumento vence próximamente.")
-                @if (resumen.PorVencer > resumen.ProximosAVencer.Count)
-                {
-                    <small class="text-muted">Se muestran los @resumen.ProximosAVencer.Count más próximos.</small>
-                }
-            </section>
-
-            <section class="dashboard-bloque">
-                <h2>Vencidos (@resumen.Vencidos)</h2>
-                @Tabla(resumen.VencidosMasAtrasados, "Atraso", "No hay instrumentos vencidos.")
-                @if (resumen.Vencidos > resumen.VencidosMasAtrasados.Count)
-                {
-                    <small class="text-muted">Se muestran los @resumen.VencidosMasAtrasados.Count con mayor atraso.</small>
-                }
-            </section>
         </div>
 
         <section class="dashboard-bloque">
@@ -78,20 +59,64 @@
                     <span class="badge badge-taller">En taller</span>
                     <span class="badge badge-vencida">Vencidos</span>
                 </div>
-                @foreach (var a in resumen.PorArea)
-                {
-                    <div class="area-fila">
-                        <div class="area-texto">
-                            <span>@a.Area</span>
-                            <span class="text-muted">@a.Vigentes de @a.Total calibrados (@Pct(a.Vigentes, a.Total, "0")%)</span>
+                <div class="scroll-vertical">
+                    @foreach (var a in resumen.PorArea)
+                    {
+                        <div class="area-fila">
+                            <div class="area-texto">
+                                <span>@a.Area</span>
+                                <span class="text-muted">@a.Vigentes de @a.Total calibrados (@Pct(a.Vigentes, a.Total, "0")%)</span>
+                            </div>
+                            <div class="barra-area">
+                                <div class="seg-vigente" style="width:@Pct(a.Vigentes, a.Total)%"></div>
+                                <div class="seg-taller" style="width:@Pct(a.EnTaller, a.Total)%"></div>
+                                <div class="seg-vencida" style="width:@Pct(a.Vencidos, a.Total)%"></div>
+                            </div>
                         </div>
-                        <div class="barra-area">
-                            <div class="seg-vigente" style="width:@Pct(a.Vigentes, a.Total)%"></div>
-                            <div class="seg-taller" style="width:@Pct(a.EnTaller, a.Total)%"></div>
-                            <div class="seg-vencida" style="width:@Pct(a.Vencidos, a.Total)%"></div>
-                        </div>
-                    </div>
-                }
+                    }
+                </div>
+            }
+        </section>
+
+        <h2 class="dashboard-subtitulo">Tanques</h2>
+        <div class="resumen-estados">
+            @Tarjeta("Tanques", resumen.Tanques.Total, "card-neutro", "registrados", "/tanques")
+            @Tarjeta("Aforo vigente", resumen.Tanques.Vigentes, "card-vigente", NotaVigente, "/tanques")
+            @Tarjeta("Aforo por vencer", resumen.Tanques.PorVencer, "card-porvencer", NotaPorVencer, "/tanques")
+            @Tarjeta("Aforo vencido", resumen.Tanques.Vencidos, "card-vencida", "certificado expirado", "/tanques")
+            @Tarjeta("Sin certificado", resumen.Tanques.SinCertificado, "card-taller", "o sin fecha de vigencia", "/tanques")
+        </div>
+
+        <section class="dashboard-bloque">
+            <h2>Certificados de aforo por producto</h2>
+            @if (resumen.Tanques.PorProducto.Count == 0)
+            {
+                <p class="text-muted mb-0">Aún no hay tanques registrados.</p>
+            }
+            else
+            {
+                <div class="scroll-vertical">
+                    <table class="tabla-usuarios">
+                        <thead>
+                            <tr>
+                                <th>Producto</th><th>Tanques</th><th>Vigentes</th><th>Por vencer</th><th>Vencidos</th><th>Sin certificado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in resumen.Tanques.PorProducto)
+                            {
+                                <tr>
+                                    <td>@p.Producto</td>
+                                    <td>@p.Total</td>
+                                    <td>@p.Vigentes</td>
+                                    <td>@p.PorVencer</td>
+                                    <td>@p.Vencidos</td>
+                                    <td>@p.SinCertificado</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
         </section>
     }
@@ -139,7 +164,7 @@
     private RenderFragment Tarjeta(string titulo, int valor, string clase, string nota, string estado) => @<text>
         @if (esAdmin && estado != "")
         {
-            <a href="@("/calibraciones?estado=" + estado)" class="resumen-card resumen-enlace @clase">
+            <a href="@((estado.StartsWith("/") ? estado : "/calibraciones?estado=" + estado))" class="resumen-card resumen-enlace @clase">
                 <span class="resumen-titulo">@titulo</span>
                 <span class="resumen-numero">@valor</span>
                 <span class="resumen-nota">@nota</span>
@@ -151,34 +176,6 @@
                 <span class="resumen-titulo">@titulo</span>
                 <span class="resumen-numero">@valor</span>
                 <span class="resumen-nota">@nota</span>
-            </div>
-        }
-    </text>;
-
-    private RenderFragment Tabla(List<AlertaInstrumento> items, string colDias, string vacio) => @<text>
-        @if (items.Count == 0)
-        {
-            <p class="text-muted">@vacio</p>
-        }
-        else
-        {
-            <div class="tabla-scroll">
-                <table class="tabla-usuarios">
-                    <thead>
-                        <tr><th>Serie</th><th>Tipo</th><th>Área</th><th>@colDias</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var i in items)
-                        {
-                            <tr>
-                                <td>@i.Serie</td>
-                                <td>@i.Tipo</td>
-                                <td>@i.Area</td>
-                                <td class="nowrap">@(i.Dias is null ? "Sin calibración" : i.Dias + " d")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
             </div>
         }
     </text>;

@@ -394,3 +394,21 @@ a.resumen-card.resumen-enlace:hover {
 .seg-vigente { background-color: #28a745; }
 .seg-taller { background-color: #3d8bfd; }
 .seg-vencida { background-color: #dc3545; }
+
+.dashboard-subtitulo {
+    font-size: 1.15rem;
+    color: #495057;
+    margin: 1.25rem 0 0.6rem;
+}
+
+.scroll-vertical {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.scroll-vertical thead th {
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+}
