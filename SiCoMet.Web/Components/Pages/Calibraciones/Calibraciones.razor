@@ -6,6 +6,7 @@
 @using SiCoMet.Web.Data
 @inject ApplicationDbContext DbContext
 @inject IAuditoriaService Auditoria
+@inject CertificadoService Certificados
 
 <PageTitle>SiCoMet - Panel de calibración</PageTitle>
 
@@ -144,6 +145,10 @@
                                 }
                                 else
                                 {
+                                    if (f.Ultima?.CertificadoArchivoRuta is not null)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@($"/certificados/{f.Ultima.Id}")" target="_blank" rel="noopener" data-enhance-nav="false" title="@f.Ultima.CertificadoArchivoNombre">Ver certificado</a>
+                                    }
                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AbrirEnvioFila(f)">Enviar a calibración</button>
                                 }
                             </td>
@@ -265,6 +270,23 @@
             </div>
 
             <div class="form-group mb-3">
+                <label>Certificado de calibración en PDF (opcional)</label>
+                <InputFile class="form-control" accept=".pdf,application/pdf" OnChange="SeleccionarCertificado" />
+                @if (resArchivoError is not null)
+                {
+                    <div class="form-text text-danger">@resArchivoError</div>
+                }
+                else if (resArchivo is not null)
+                {
+                    <div class="form-text">Seleccionado: @resArchivo.Name (@FormatoTamano(resArchivo.Size))</div>
+                }
+                else
+                {
+                    <div class="form-text">Solo PDF, máximo 10 MB.</div>
+                }
+            </div>
+
+            <div class="form-group mb-3">
                 <label>Observaciones (opcional)</label>
                 <textarea class="form-control" rows="2" maxlength="500" @bind="resObservaciones" @bind:event="oninput"></textarea>
             </div>
@@ -317,6 +339,8 @@
     private string? resMotivo;
     private string? resCertificado;
     private string? resObservaciones;
+    private IBrowserFile? resArchivo;
+    private string? resArchivoError;
     private bool proximaEditada;
 
     [Parameter, SupplyParameterFromQuery(Name = "estado")]
@@ -547,6 +571,8 @@
         resMotivo = null;
         resCertificado = null;
         resObservaciones = f.Ultima?.Observaciones;
+        resArchivo = null;
+        resArchivoError = null;
         proximaEditada = false;
         resFechaProxima = null;
         RecalcularProxima();
@@ -568,6 +594,16 @@
     }
 
     private void MarcarProximaEditada() => proximaEditada = true;
+
+    private void SeleccionarCertificado(InputFileChangeEventArgs e)
+    {
+        resArchivo = null;
+        resArchivoError = CertificadoService.ValidarSeleccion(e.File);
+        if (resArchivoError is null) resArchivo = e.File;
+    }
+
+    private static string FormatoTamano(long bytes) =>
+        bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} KB";
 
     private async Task ConfirmarResultado()
     {
@@ -597,9 +633,13 @@
         if ((resCertificado?.Length ?? 0) > 100)
             errores.Add("El número de certificado no puede superar los 100 caracteres.");
 
+        if (resArchivoError is not null)
+            errores.Add(resArchivoError);
+
         if (errores.Count > 0) return;
 
         guardando = true;
+        CertificadoGuardado? certificado = null;
         try
         {
             var calibracion = await DbContext.Calibraciones.FirstOrDefaultAsync(c => c.Id == resFila.Ultima.Id);
@@ -609,6 +649,15 @@
                 mostrarResultado = false;
                 await CargarAsync();
                 return;
+            }
+
+            if (resArchivo is not null)
+            {
+                certificado = await Certificados.GuardarAsync(resArchivo);
+                calibracion.CertificadoArchivoNombre = certificado.Nombre;
+                calibracion.CertificadoArchivoRuta = certificado.Ruta;
+                calibracion.CertificadoArchivoTamano = certificado.Tamano;
+                calibracion.CertificadoArchivoFecha = DateTime.UtcNow;
             }
 
             calibracion.FechaCalibracion = resFechaCalibracion;
@@ -624,14 +673,20 @@
             await Auditoria.RegistrarAsync(
                 "Calibración",
                 TipoAccionAuditoria.Editar,
-                Truncar($"Registró resultado de calibración de {serie}: {resultado}, calibrado el {resFechaCalibracion:dd/MM/yyyy}, próxima {resFechaProxima:dd/MM/yyyy}"));
+                Truncar($"Registró resultado de calibración de {serie}: {resultado}, calibrado el {resFechaCalibracion:dd/MM/yyyy}, próxima {resFechaProxima:dd/MM/yyyy}{(certificado is not null ? ", con certificado PDF" : "")}"));
 
             mensajeOk = $"Resultado de {serie} registrado ({resultado}).";
             mostrarResultado = false;
             await CargarAsync();
         }
+        catch (CertificadoInvalidoException ex)
+        {
+            errores.Add(ex.Message);
+        }
         catch (DbUpdateException)
         {
+            // Si la base de datos falló, no dejar el PDF huérfano en el disco.
+            if (certificado is not null) Certificados.Eliminar(certificado.Ruta);
             errores.Add("No se pudo guardar el resultado. Intente de nuevo.");
         }
         finally

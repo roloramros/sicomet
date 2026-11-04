@@ -48,6 +48,8 @@ builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, CustomU
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditoriaService, AuditoriaService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddSingleton<CertificadoService>();
+builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
@@ -75,7 +77,36 @@ else
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
+
+// Descarga/visualización de certificados de calibración (PDF). Pasa siempre por aquí
+// para comprobar sesión y rol; la carpeta de certificados no es pública.
+app.MapGet("/certificados/{calibracionId:int}", async (
+    int calibracionId,
+    HttpContext contexto,
+    ApplicationDbContext db,
+    CertificadoService certificados) =>
+{
+    var datos = await db.Calibraciones
+        .AsNoTracking()
+        .Where(c => c.Id == calibracionId)
+        .Select(c => new { c.CertificadoArchivoRuta, c.CertificadoArchivoNombre })
+        .FirstOrDefaultAsync();
+
+    if (datos?.CertificadoArchivoRuta is null) return Results.NotFound();
+
+    var completa = certificados.RutaCompleta(datos.CertificadoArchivoRuta);
+    if (completa is null || !File.Exists(completa)) return Results.NotFound();
+
+    var nombre = datos.CertificadoArchivoNombre ?? "certificado.pdf";
+    contexto.Response.Headers.ContentDisposition = $"inline; filename*=UTF-8''{Uri.EscapeDataString(nombre)}";
+    contexto.Response.Headers.XContentTypeOptions = "nosniff";
+    return Results.File(completa, "application/pdf", enableRangeProcessing: true);
+})
+.RequireAuthorization(politica => politica.RequireRole(
+    Roles.Administrador, Roles.Directores, Roles.Tecnicos, Roles.Usuario));
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

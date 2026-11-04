@@ -35,8 +35,22 @@ public class Calibracion
     [MaxLength(100)]
     public string? CertificadoNumero { get; set; }
 
-    [MaxLength(300)]
-    public string? CertificadoArchivoUrl { get; set; }
+    /// <summary>Nombre original del PDF del certificado, tal como lo subió el usuario.</summary>
+    [MaxLength(255)]
+    public string? CertificadoArchivoNombre { get; set; }
+
+    /// <summary>
+    /// Nombre interno del archivo en la carpeta de certificados (aleatorio, sin ruta).
+    /// Nulo si no se adjuntó el PDF.
+    /// </summary>
+    [MaxLength(100)]
+    public string? CertificadoArchivoRuta { get; set; }
+
+    /// <summary>Tamaño del PDF en bytes.</summary>
+    public long? CertificadoArchivoTamano { get; set; }
+
+    /// <summary>Fecha y hora (UTC) en que se adjuntó el PDF.</summary>
+    public DateTime? CertificadoArchivoFecha { get; set; }
 
     /// <summary>Resultado de la calibración. Nulo hasta registrar el resultado.</summary>
     public EstadoTecnico? EstadoTecnico { get; set; }
