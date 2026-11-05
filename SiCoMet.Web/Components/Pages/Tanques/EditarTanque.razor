@@ -207,11 +207,32 @@
             return;
         }
 
+        // El detalle se calcula ANTES de guardar: al guardar, EF descarta los valores originales.
+        var cambios = AuditoriaDiff.Calcular(DbContext.Entry(tanque), FormatearCambio);
+
+        if (cambios.Count == 0)
+        {
+            NavigationManager.NavigateTo("/tanques?Mensaje=No se realizaron cambios", forceLoad: true);
+            return;
+        }
+
         await DbContext.SaveChangesAsync();
 
+        var resumen = cambios.Count == 1 ? "1 campo modificado" : $"{cambios.Count} campos modificados";
         await Auditoria.RegistrarAsync("Tanque", TipoAccionAuditoria.Editar,
-            $"Se editó el tanque '{tanque.Numero}'.");
+            $"Se editó el tanque '{tanque.Numero}': {resumen}.", cambios);
 
         NavigationManager.NavigateTo("/tanques?Mensaje=Tanque actualizado correctamente", forceLoad: true);
+    }
+
+    // Muestra el nombre del producto en vez de su Id en el detalle de auditoría.
+    private string? FormatearCambio(string propiedad, object? valor)
+    {
+        if (propiedad == nameof(Tanque.ProductoId) && valor is int id)
+        {
+            return productos.FirstOrDefault(p => p.Id == id)?.Nombre ?? $"Producto #{id}";
+        }
+
+        return null;
     }
 }

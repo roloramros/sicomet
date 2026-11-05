@@ -412,3 +412,41 @@ a.resumen-card.resumen-enlace:hover {
     top: 0;
     background-color: #fff;
 }
+
+.btn-ver-cambios {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.fila-detalle td {
+    background-color: #f8f9fa;
+    padding: 0.5rem 0.75rem 0.9rem;
+}
+
+.tabla-cambios-wrap {
+    overflow-x: auto;
+}
+
+.tabla-cambios {
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.9rem;
+}
+
+.tabla-cambios th,
+.tabla-cambios td {
+    text-align: left;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #dee2e6;
+}
+
+.tabla-cambios th {
+    background-color: #e9ecef;
+    font-weight: 600;
+}
+
+.valor-vacio {
+    color: #6c757d;
+    font-style: italic;
+}

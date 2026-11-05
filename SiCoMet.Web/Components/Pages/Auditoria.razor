@@ -63,6 +63,8 @@
                 <tbody>
                     @foreach (var r in filtrados)
                     {
+                        var tieneDetalle = !string.IsNullOrWhiteSpace(r.Detalle);
+                        var abierto = tieneDetalle && expandidos.Contains(r.Id);
                         <tr>
                             <td class="nowrap">@r.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                             <td>@r.NombreUsuario</td>
@@ -70,8 +72,54 @@
                             <td>
                                 <span class="badge @ClaseBadgeAccion(r.Accion)">@r.Accion</span>
                             </td>
-                            <td>@r.Mensaje</td>
+                            <td>
+                                @r.Mensaje
+                                @if (tieneDetalle)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-ver-cambios"
+                                            aria-expanded="@(abierto ? "true" : "false")"
+                                            @onclick="() => AlternarDetalle(r.Id)">
+                                        @(abierto ? "Ocultar cambios ▴" : "Ver cambios ▾")
+                                    </button>
+                                }
+                            </td>
                         </tr>
+                        @if (abierto)
+                        {
+                            var cambios = AuditoriaDiff.Deserializar(r.Detalle);
+                            <tr class="fila-detalle">
+                                <td colspan="5">
+                                    @if (cambios.Count == 0)
+                                    {
+                                        <span class="text-muted">No se pudo leer el detalle de este registro.</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="tabla-cambios-wrap">
+                                            <table class="tabla-cambios">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Campo</th>
+                                                        <th>Antes</th>
+                                                        <th>Después</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var c in cambios)
+                                                    {
+                                                        <tr>
+                                                            <td>@c.Campo</td>
+                                                            <td>@if (string.IsNullOrEmpty(c.Antes)) { <span class="valor-vacio">(vacío)</span> } else { @c.Antes }</td>
+                                                            <td>@if (string.IsNullOrEmpty(c.Despues)) { <span class="valor-vacio">(vacío)</span> } else { @c.Despues }</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -89,6 +137,17 @@
     private string filtroTexto = "";
     private string filtroEntidad = "";
     private string filtroAccion = "";
+
+    // Registros cuyo detalle de cambios está desplegado
+    private readonly HashSet<int> expandidos = new();
+
+    private void AlternarDetalle(int id)
+    {
+        if (!expandidos.Remove(id))
+        {
+            expandidos.Add(id);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

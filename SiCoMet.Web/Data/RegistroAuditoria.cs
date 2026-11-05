@@ -27,4 +27,8 @@ public class RegistroAuditoria
 
     [MaxLength(500)]
     public string Mensaje { get; set; } = "";
+
+    // Lista de cambios (campo, antes, despues) en JSON. Solo se llena en ediciones que
+    // calculan el detalle con AuditoriaDiff; los registros antiguos lo tienen en null.
+    public string? Detalle { get; set; }
 }

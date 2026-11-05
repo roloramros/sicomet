@@ -6,7 +6,7 @@ namespace SiCoMet.Web.Data;
 
 public interface IAuditoriaService
 {
-    Task RegistrarAsync(string entidad, TipoAccionAuditoria accion, string mensaje);
+    Task RegistrarAsync(string entidad, TipoAccionAuditoria accion, string mensaje, IReadOnlyList<CambioAuditoria>? cambios = null);
 }
 
 // Servicio simple para dejar constancia de acciones (crear/editar/eliminar) en cualquier
@@ -25,7 +25,7 @@ public class AuditoriaService(
     IHttpContextAccessor httpContextAccessor,
     AuthenticationStateProvider authenticationStateProvider) : IAuditoriaService
 {
-    public async Task RegistrarAsync(string entidad, TipoAccionAuditoria accion, string mensaje)
+    public async Task RegistrarAsync(string entidad, TipoAccionAuditoria accion, string mensaje, IReadOnlyList<CambioAuditoria>? cambios = null)
     {
         var user = await ObtenerUsuarioAsync();
 
@@ -42,7 +42,8 @@ public class AuditoriaService(
             NombreUsuario = nombre,
             Entidad = entidad,
             Accion = accion,
-            Mensaje = mensaje
+            Mensaje = mensaje,
+            Detalle = AuditoriaDiff.Serializar(cambios)
         });
 
         await db.SaveChangesAsync();
