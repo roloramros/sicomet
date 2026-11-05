@@ -91,10 +91,20 @@
 
         producto.Nombre = Input.Nombre;
         producto.Activo = Input.Activo;
+
+        // El detalle se calcula ANTES de guardar: al guardar, EF descarta los valores originales.
+        var cambios = AuditoriaDiff.Calcular(DbContext.Entry(producto));
+
+        if (cambios.Count == 0)
+        {
+            NavigationManager.NavigateTo("/productos?Mensaje=No se realizaron cambios", forceLoad: true);
+            return;
+        }
+
         await DbContext.SaveChangesAsync();
 
         await Auditoria.RegistrarAsync("Producto", TipoAccionAuditoria.Editar,
-            $"Se editó el producto '{producto.Nombre}'.");
+            $"Se editó el producto '{producto.Nombre}': {AuditoriaDiff.Resumen(cambios.Count)}.", cambios);
 
         NavigationManager.NavigateTo("/productos?Mensaje=Producto actualizado correctamente", forceLoad: true);
     }

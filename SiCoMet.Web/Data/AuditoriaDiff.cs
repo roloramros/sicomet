@@ -53,7 +53,7 @@ public static class AuditoriaDiff
 
             if (propiedad.Metadata.IsPrimaryKey()) continue;
             if (excluir.Contains(nombre)) continue;
-            if (Equals(propiedad.OriginalValue, propiedad.CurrentValue)) continue;
+            if (SonIguales(propiedad.OriginalValue, propiedad.CurrentValue)) continue;
 
             cambios.Add(new CambioAuditoria(
                 Etiqueta(tipo, nombre),
@@ -62,6 +62,24 @@ public static class AuditoriaDiff
         }
 
         return cambios;
+    }
+
+    /// <summary>Texto corto para el mensaje del registro: "1 campo modificado" / "3 campos modificados".</summary>
+    public static string Resumen(int cantidad) =>
+        cantidad == 1 ? "1 campo modificado" : $"{cantidad} campos modificados";
+
+    // Un texto vacio, solo con espacios o null cuentan como lo mismo: un formulario puede
+    // devolver "" donde la base de datos tiene null, y eso no es un cambio real.
+    private static bool SonIguales(object? original, object? actual)
+    {
+        if (Equals(original, actual)) return true;
+
+        if ((original is null or string) && (actual is null or string))
+        {
+            return string.Equals(((string?)original)?.Trim() ?? "", ((string?)actual)?.Trim() ?? "");
+        }
+
+        return false;
     }
 
     public static string? Serializar(IReadOnlyList<CambioAuditoria>? cambios) =>

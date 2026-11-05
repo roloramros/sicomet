@@ -218,9 +218,8 @@
 
         await DbContext.SaveChangesAsync();
 
-        var resumen = cambios.Count == 1 ? "1 campo modificado" : $"{cambios.Count} campos modificados";
         await Auditoria.RegistrarAsync("Tanque", TipoAccionAuditoria.Editar,
-            $"Se editó el tanque '{tanque.Numero}': {resumen}.", cambios);
+            $"Se editó el tanque '{tanque.Numero}': {AuditoriaDiff.Resumen(cambios.Count)}.", cambios);
 
         NavigationManager.NavigateTo("/tanques?Mensaje=Tanque actualizado correctamente", forceLoad: true);
     }

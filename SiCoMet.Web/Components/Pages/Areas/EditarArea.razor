@@ -92,10 +92,20 @@
 
         area.Nombre = Input.Nombre;
         area.Descripcion = Input.Descripcion;
+
+        // El detalle se calcula ANTES de guardar: al guardar, EF descarta los valores originales.
+        var cambios = AuditoriaDiff.Calcular(DbContext.Entry(area));
+
+        if (cambios.Count == 0)
+        {
+            NavigationManager.NavigateTo("/areas?Mensaje=No se realizaron cambios", forceLoad: true);
+            return;
+        }
+
         await DbContext.SaveChangesAsync();
 
         await Auditoria.RegistrarAsync("Area", TipoAccionAuditoria.Editar,
-            $"Se editó el área '{area.Nombre}'.");
+            $"Se editó el área '{area.Nombre}': {AuditoriaDiff.Resumen(cambios.Count)}.", cambios);
 
         NavigationManager.NavigateTo("/areas?Mensaje=Área actualizada correctamente", forceLoad: true);
     }

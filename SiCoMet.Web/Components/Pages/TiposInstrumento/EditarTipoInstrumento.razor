@@ -92,10 +92,20 @@
 
         tipo.Nombre = Input.Nombre;
         tipo.UnidadMedida = Input.UnidadMedida;
+
+        // El detalle se calcula ANTES de guardar: al guardar, EF descarta los valores originales.
+        var cambios = AuditoriaDiff.Calcular(DbContext.Entry(tipo));
+
+        if (cambios.Count == 0)
+        {
+            NavigationManager.NavigateTo("/tipos-instrumento?Mensaje=No se realizaron cambios", forceLoad: true);
+            return;
+        }
+
         await DbContext.SaveChangesAsync();
 
         await Auditoria.RegistrarAsync("TipoInstrumento", TipoAccionAuditoria.Editar,
-            $"Se editó el tipo de instrumento '{tipo.Nombre}'.");
+            $"Se editó el tipo de instrumento '{tipo.Nombre}': {AuditoriaDiff.Resumen(cambios.Count)}.", cambios);
 
         NavigationManager.NavigateTo("/tipos-instrumento?Mensaje=Tipo de instrumento actualizado correctamente", forceLoad: true);
     }

@@ -111,6 +111,35 @@
             return;
         }
 
+        // Detalle de auditoría: se compara con los valores actuales ANTES de modificar nada.
+        // La contraseña nunca se registra, solo el hecho de que se restableció.
+        var rolAnterior = (await UserManager.GetRolesAsync(usuario)).FirstOrDefault() ?? Roles.Usuario;
+        var activoAnterior = usuario.LockoutEnd is null || usuario.LockoutEnd < DateTimeOffset.UtcNow;
+
+        var cambios = new List<CambioAuditoria>();
+        if (usuario.NombreCompleto != Input.NombreCompleto)
+        {
+            cambios.Add(new CambioAuditoria("Nombre completo", usuario.NombreCompleto, Input.NombreCompleto));
+        }
+        if (rolAnterior != Input.Rol)
+        {
+            cambios.Add(new CambioAuditoria("Rol", rolAnterior, Input.Rol));
+        }
+        if (activoAnterior != Input.Activo)
+        {
+            cambios.Add(new CambioAuditoria("Activo", activoAnterior ? "Sí" : "No", Input.Activo ? "Sí" : "No"));
+        }
+        if (!string.IsNullOrWhiteSpace(Input.NuevaPassword))
+        {
+            cambios.Add(new CambioAuditoria("Contraseña", "(no se registra)", "Restablecida"));
+        }
+
+        if (cambios.Count == 0)
+        {
+            NavigationManager.NavigateTo("/usuarios?Mensaje=No se realizaron cambios", forceLoad: true);
+            return;
+        }
+
         usuario.NombreCompleto = Input.NombreCompleto;
         await UserManager.UpdateAsync(usuario);
 
@@ -145,8 +174,7 @@
         }
 
         await Auditoria.RegistrarAsync("Usuario", TipoAccionAuditoria.Editar,
-            $"Se editó el usuario '{Input.NombreCompleto}' ({usuario.Email}): rol = {Input.Rol}, activo = {(Input.Activo ? "sí" : "no")}" +
-            (string.IsNullOrWhiteSpace(Input.NuevaPassword) ? "." : ", contraseña restablecida."));
+            $"Se editó el usuario '{Input.NombreCompleto}' ({usuario.Email}): {AuditoriaDiff.Resumen(cambios.Count)}.", cambios);
 
         NavigationManager.NavigateTo("/usuarios?Mensaje=Usuario actualizado correctamente", forceLoad: true);
     }

@@ -150,12 +150,37 @@
         instrumento.PeriodicidadMeses = Input.PeriodicidadMeses;
         instrumento.Activo = Input.Activo;
 
+        // El detalle se calcula ANTES de guardar: al guardar, EF descarta los valores originales.
+        var cambios = AuditoriaDiff.Calcular(DbContext.Entry(instrumento), FormatearCambio);
+
+        if (cambios.Count == 0)
+        {
+            NavigationManager.NavigateTo("/instrumentos?Mensaje=No se realizaron cambios", forceLoad: true);
+            return;
+        }
+
         await DbContext.SaveChangesAsync();
 
         await Auditoria.RegistrarAsync("Instrumento", TipoAccionAuditoria.Editar,
-            $"Se editó el instrumento con serie '{instrumento.Serie}'.");
+            $"Se editó el instrumento con serie '{instrumento.Serie}': {AuditoriaDiff.Resumen(cambios.Count)}.", cambios);
 
         NavigationManager.NavigateTo("/instrumentos?Mensaje=Instrumento actualizado correctamente", forceLoad: true);
+    }
+
+    // Muestra el nombre del área y del tipo en vez de su Id en el detalle de auditoría.
+    private string? FormatearCambio(string propiedad, object? valor)
+    {
+        if (valor is not int id)
+        {
+            return null;
+        }
+
+        return propiedad switch
+        {
+            nameof(Instrumento.AreaId) => areas.FirstOrDefault(a => a.Id == id)?.Nombre ?? $"Área #{id}",
+            nameof(Instrumento.TipoInstrumentoId) => tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? $"Tipo #{id}",
+            _ => null
+        };
     }
 
     private sealed class InputModel
