@@ -126,7 +126,7 @@
                                            @onchange="e => AlternarSeleccion(f.Instrumento.Id, e)" />
                                 }
                             </td>
-                            <td>@f.Instrumento.Serie</td>
+                            <td><a href="@($"/instrumentos/ficha/{f.Instrumento.Id}")" class="enlace-ficha">@f.Instrumento.Serie</a></td>
                             <td>@f.Instrumento.Posicion</td>
                             <td>@f.Instrumento.Area.Nombre</td>
                             <td>@f.Instrumento.TipoInstrumento.Nombre</td>

@@ -1,0 +1,321 @@
+@page "/instrumentos/ficha/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
+@using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Ficha del instrumento</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <a href="/instrumentos" class="back-link">← Volver a instrumentos</a>
+            <h1>Ficha del instrumento@(instrumento is null ? "" : $" {instrumento.Serie}")</h1>
+        </div>
+        @if (instrumento is not null)
+        {
+            <a href="@($"/instrumentos/editar/{instrumento.Id}")" class="btn btn-outline-secondary">Editar</a>
+        }
+    </div>
+
+    @if (cargando)
+    {
+        <p>Cargando...</p>
+    }
+    else if (instrumento is null)
+    {
+        <div class="alert alert-danger">No se encontró el instrumento solicitado.</div>
+    }
+    else
+    {
+        <h2 class="ficha-titulo">Estado actual</h2>
+        <div class="ficha-estado">
+            <span class="badge @ClaseBadge()">@Etiqueta()</span>
+            @if (estado == EstadoCalibracion.Calibrado && ultima?.EstadoTecnico == EstadoTecnico.NoApto)
+            {
+                <span class="badge badge-vencida" title="@ultima.MotivoNoApto">No apto</span>
+            }
+            @if (!instrumento.Activo)
+            {
+                <span class="badge badge-inactivo">Inactivo</span>
+            }
+            <span class="ficha-estado-detalle">@DetalleEstado()</span>
+        </div>
+
+        <h2 class="ficha-titulo">Datos generales</h2>
+        <dl class="ficha-datos">
+            <div><dt>Serie</dt><dd>@instrumento.Serie</dd></div>
+            <div><dt>Tipo</dt><dd>@instrumento.TipoInstrumento.Nombre</dd></div>
+            <div><dt>Área</dt><dd>@instrumento.Area.Nombre</dd></div>
+            <div><dt>Posición</dt><dd>@(string.IsNullOrWhiteSpace(instrumento.Posicion) ? "—" : instrumento.Posicion)</dd></div>
+            <div><dt>Rango de medición</dt><dd>@Rango()</dd></div>
+            <div><dt>Periodicidad</dt><dd>@(instrumento.PeriodicidadMeses > 0 ? $"{instrumento.PeriodicidadMeses} meses" : "No definida")</dd></div>
+        </dl>
+
+        <h2 class="ficha-titulo">Historial de calibraciones</h2>
+        @if (historial.Count == 0)
+        {
+            <p class="text-muted">Este instrumento no tiene calibraciones registradas.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Fecha de envío</th>
+                        <th>Fecha de calibración</th>
+                        <th>Resultado</th>
+                        <th>Certificado</th>
+                        <th>Próxima calibración</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in historial)
+                    {
+                        <tr>
+                            <td class="nowrap">@c.FechaEnvioTaller.ToString("dd/MM/yyyy")</td>
+                            <td class="nowrap">@(c.FechaCalibracion?.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>
+                                @if (c.FechaCalibracion is null)
+                                {
+                                    <span class="badge badge-taller">En taller</span>
+                                }
+                                else if (c.EstadoTecnico == EstadoTecnico.NoApto)
+                                {
+                                    <span class="badge badge-vencida">No apto</span>
+                                    @if (!string.IsNullOrWhiteSpace(c.MotivoNoApto))
+                                    {
+                                        <div class="text-muted">Motivo: @c.MotivoNoApto</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="badge badge-vigente">Dentro de límites</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(c.CertificadoNumero))
+                                {
+                                    <span>@c.CertificadoNumero</span>
+                                }
+                                @if (c.CertificadoArchivoRuta is not null)
+                                {
+                                    <a class="btn btn-sm btn-outline-secondary" href="@($"/certificados/{c.Id}")" target="_blank" rel="noopener" data-enhance-nav="false" title="@c.CertificadoArchivoNombre">Ver PDF</a>
+                                }
+                                @if (string.IsNullOrWhiteSpace(c.CertificadoNumero) && c.CertificadoArchivoRuta is null)
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                            <td class="nowrap">@(c.FechaProximaCalibracion?.ToString("dd/MM/yyyy") ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <h2 class="ficha-titulo">Actividad</h2>
+        @if (actividad.Count == 0)
+        {
+            <p class="text-muted">No hay actividad registrada para este instrumento.</p>
+        }
+        else
+        {
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in actividad)
+                    {
+                        var tieneDetalle = !string.IsNullOrWhiteSpace(r.Detalle);
+                        var abierto = tieneDetalle && expandidos.Contains(r.Id);
+                        <tr>
+                            <td class="nowrap">@r.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@r.NombreUsuario</td>
+                            <td><span class="badge">@r.Accion</span></td>
+                            <td>
+                                @r.Mensaje
+                                @if (tieneDetalle)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-ver-cambios"
+                                            aria-expanded="@(abierto ? "true" : "false")"
+                                            @onclick="() => AlternarDetalle(r.Id)">
+                                        @(abierto ? "Ocultar cambios ▴" : "Ver cambios ▾")
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                        @if (abierto)
+                        {
+                            var cambios = AuditoriaDiff.Deserializar(r.Detalle);
+                            <tr class="fila-detalle">
+                                <td colspan="4">
+                                    @if (cambios.Count == 0)
+                                    {
+                                        <span class="text-muted">No se pudo leer el detalle de este registro.</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="tabla-cambios-wrap">
+                                            <table class="tabla-cambios">
+                                                <thead>
+                                                    <tr><th>Campo</th><th>Antes</th><th>Después</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var cambio in cambios)
+                                                    {
+                                                        <tr>
+                                                            <td>@cambio.Campo</td>
+                                                            <td>@(cambio.Antes ?? "—")</td>
+                                                            <td>@(cambio.Despues ?? "—")</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted registro-contador">Se muestran las últimas @LimiteActividad acciones como máximo. La actividad se asocia al instrumento por su número de serie.</p>
+        }
+    }
+</div>
+
+@code {
+    private const int LimiteActividad = 50;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private bool cargando = true;
+    private Instrumento? instrumento;
+    private List<Calibracion> historial = new();
+    private Calibracion? ultima;
+    private EstadoCalibracion estado;
+    private int? diasParaVencer;
+    private DateOnly hoy;
+    private List<RegistroAuditoria> actividad = new();
+    private readonly HashSet<int> expandidos = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        cargando = true;
+        expandidos.Clear();
+        hoy = DateOnly.FromDateTime(DateTime.Today);
+
+        instrumento = await DbContext.Instrumentos
+            .AsNoTracking()
+            .Include(i => i.Area)
+            .Include(i => i.TipoInstrumento)
+            .Include(i => i.Calibraciones)
+            .FirstOrDefaultAsync(i => i.Id == Id);
+
+        if (instrumento is null)
+        {
+            cargando = false;
+            return;
+        }
+
+        historial = instrumento.Calibraciones
+            .OrderByDescending(c => c.FechaEnvioTaller)
+            .ThenByDescending(c => c.Id)
+            .ToList();
+
+        ultima = CalibracionEstadoHelper.Ultima(instrumento.Calibraciones);
+        estado = CalibracionEstadoHelper.Calcular(ultima, hoy);
+        diasParaVencer = CalibracionEstadoHelper.DiasParaVencer(ultima, hoy);
+
+        await CargarActividadAsync(instrumento.Serie);
+        cargando = false;
+    }
+
+    // La auditoría no guarda el Id de la entidad, solo un mensaje con la serie. Se busca por
+    // la serie en los mensajes de Instrumento y Calibración y se confirma en memoria que la
+    // serie aparezca como palabra completa (así "0067" no coincide con "006751").
+    private async Task CargarActividadAsync(string serie)
+    {
+        var candidatos = await DbContext.RegistrosAuditoria
+            .AsNoTracking()
+            .Where(r => (r.Entidad == "Instrumento" || r.Entidad == "Calibración") && r.Mensaje.Contains(serie))
+            .OrderByDescending(r => r.FechaHora)
+            .Take(500)
+            .ToListAsync();
+
+        var patron = new Regex(@"(?<![\p{L}\p{N}])" + Regex.Escape(serie) + @"(?![\p{L}\p{N}])", RegexOptions.IgnoreCase);
+
+        actividad = candidatos
+            .Where(r => patron.IsMatch(r.Mensaje))
+            .Take(LimiteActividad)
+            .ToList();
+    }
+
+    private void AlternarDetalle(int id)
+    {
+        if (!expandidos.Remove(id)) expandidos.Add(id);
+    }
+
+    private string Clave() => estado switch
+    {
+        EstadoCalibracion.Vencida => "vencida",
+        EstadoCalibracion.EnTaller => "taller",
+        _ => diasParaVencer is not null ? "porvencer" : "vigente"
+    };
+
+    private string ClaseBadge() => "badge-" + Clave();
+
+    private string Etiqueta() => Clave() switch
+    {
+        "vencida" => "Vencida",
+        "taller" => "En taller",
+        "porvencer" => diasParaVencer switch
+        {
+            0 => "Vence hoy",
+            1 => "Vence en 1 día",
+            var d => $"Vence en {d} días"
+        },
+        _ => "Vigente"
+    };
+
+    private string DetalleEstado()
+    {
+        switch (estado)
+        {
+            case EstadoCalibracion.EnTaller:
+                var dias = hoy.DayNumber - ultima!.FechaEnvioTaller.DayNumber;
+                return $"Enviado al taller el {ultima.FechaEnvioTaller:dd/MM/yyyy} ({dias} {(dias == 1 ? "día" : "días")} en taller).";
+
+            case EstadoCalibracion.Vencida:
+                if (ultima is null)
+                    return "Nunca se le ha registrado una calibración.";
+                if (ultima.FechaProximaCalibracion is null)
+                    return "La última calibración no tiene fecha de vencimiento registrada.";
+                var atraso = hoy.DayNumber - ultima.FechaProximaCalibracion.Value.DayNumber;
+                return $"Venció el {ultima.FechaProximaCalibracion:dd/MM/yyyy} (hace {atraso} {(atraso == 1 ? "día" : "días")}).";
+
+            default:
+                var faltan = ultima!.FechaProximaCalibracion!.Value.DayNumber - hoy.DayNumber;
+                return $"Próxima calibración: {ultima.FechaProximaCalibracion:dd/MM/yyyy} (faltan {faltan} {(faltan == 1 ? "día" : "días")}).";
+        }
+    }
+
+    private string Rango()
+    {
+        var min = instrumento!.RangoMedicionMin;
+        var max = instrumento.RangoMedicionMax;
+        if (min is null && max is null) return "—";
+        return $"{min?.ToString("0.####") ?? "?"} – {max?.ToString("0.####") ?? "?"}";
+    }
+}

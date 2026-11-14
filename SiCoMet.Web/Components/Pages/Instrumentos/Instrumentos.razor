@@ -77,7 +77,7 @@
                     @foreach (var i in filtrados)
                     {
                         <tr>
-                            <td>@i.Serie</td>
+                            <td><a href="@($"/instrumentos/ficha/{i.Id}")" class="enlace-ficha">@i.Serie</a></td>
                             <td>@i.Posicion</td>
                             <td>@i.Area.Nombre</td>
                             <td>@i.TipoInstrumento.Nombre</td>
@@ -94,6 +94,7 @@
                                 }
                             </td>
                             <td>
+                                <a href="@($"/instrumentos/ficha/{i.Id}")" class="btn btn-sm btn-outline-secondary">Ficha</a>
                                 <a href="@($"/instrumentos/editar/{i.Id}")" class="btn btn-sm btn-outline-secondary">Editar</a>
                                 <a href="@($"/instrumentos/eliminar/{i.Id}")" class="btn btn-sm btn-outline-danger">Eliminar</a>
                             </td>
