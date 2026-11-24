@@ -49,6 +49,23 @@
     --color-advertencia: var(--color-amarillo);
     --color-info: var(--color-azul);
 
+    /* Tonos para hover y para texto pequeno sobre blanco (mezclas del verde y del rojo con negro) */
+    --color-verde-oscuro: #00532B;
+    --color-rojo-oscuro: #A21410;
+    --color-gris-10: #E6E7E8;
+
+    /* ---- Estados de instrumentos y etiquetas (fondo claro + texto oscuro) ---- */
+    --estado-vigente-fondo: var(--color-verde-25);
+    --estado-vigente-texto: var(--color-verde);
+    --estado-porvencer-fondo: var(--color-amarillo-25);
+    --estado-porvencer-texto: var(--color-negro);
+    --estado-taller-fondo: var(--color-azul-25);
+    --estado-taller-texto: var(--color-azul);
+    --estado-vencida-fondo: var(--color-rojo-25);
+    --estado-vencida-texto: var(--color-rojo-oscuro);
+    --estado-neutro-fondo: var(--color-gris-25);
+    --estado-neutro-texto: var(--color-gris-85);
+
     /* ---- Uso en la interfaz (pags. 68-70) ---- */
     --color-texto: var(--color-negro);                 /* el cuerpo del texto va solo en negro */
     --color-titulo-pantalla: var(--color-rojo);        /* titulos de pantalla en rojo, solo texto grande */
@@ -71,4 +88,6 @@
 :root {
     --bs-body-font-family: var(--fuente-base);
     --bs-body-color: var(--color-texto);
+    --bs-primary-rgb: 0, 98, 51;
+    --bs-danger-rgb: 162, 20, 16;
 }
