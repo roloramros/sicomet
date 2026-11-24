@@ -55,6 +55,7 @@
     --color-encabezado-tabla: var(--color-verde-encabezado);
     --color-texto-encabezado-tabla: var(--color-blanco);
     --color-borde-tabla: var(--color-gris-25);
+    --color-fondo-pagina: #F4F5F6;                     /* fondo neutro claro, sin tono azulado */
 
     /* ---- Tipografia ----
        Para soportes digitales el manual pauta Verdana (pag. 21). DejaVu Sans es la
