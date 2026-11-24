@@ -1,5 +1,6 @@
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: var(--fuente-base);
+    color: var(--color-texto);
 }
 
 a, .btn-link {

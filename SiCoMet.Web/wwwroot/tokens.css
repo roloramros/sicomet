@@ -1,0 +1,73 @@
+/* =========================================================================
+   SiCoMet - Variables de diseno (identidad visual CUPET / Refinacion Hermanos Diaz)
+   Fuente: Manual de Aplicaciones de la Identidad Visual Institucional.
+   Este archivo solo define variables; los estilos que las usan estan en app.css.
+   ========================================================================= */
+
+:root {
+    /* ---- Colores institucionales (pag. 16) ---- */
+    /* Verde Pantone 7483 C, Rojo Pantone Warm Red C */
+    --color-verde: #006233;
+    --color-verde-85: #267A52;
+    --color-verde-75: #408966;
+    --color-verde-50: #80B099;
+    --color-verde-25: #BFD8CC;
+
+    --color-rojo: #F91E18;
+    --color-rojo-85: #FA403B;
+    --color-rojo-75: #FA5652;
+    --color-rojo-50: #FC8E8C;
+    --color-rojo-25: #FEC7C5;
+
+    --color-amarillo: #FFB700;
+    --color-amarillo-85: #FFC226;
+    --color-amarillo-75: #FFC940;
+    --color-amarillo-50: #FFDB80;
+    --color-amarillo-25: #FFEDBF;
+
+    --color-azul: #0800FA;
+    --color-azul-85: #2D26FB;
+    --color-azul-75: #4640FB;
+    --color-azul-50: #8480FC;
+    --color-azul-25: #C1BFFE;
+
+    /* Verde para encabezados en pantalla (pag. 69: Pantone 349 C, RGB 1-98-47) */
+    --color-verde-encabezado: #01622F;
+
+    /* ---- Negro, blanco y escala de grises (pag. 17) ----
+       Los grises son aproximados a los tonos de la escala del manual. */
+    --color-negro: #000000;
+    --color-blanco: #FFFFFF;
+    --color-gris-85: #4D4D4F;
+    --color-gris-75: #636466;
+    --color-gris-50: #939598;
+    --color-gris-25: #C7C8CA;
+
+    /* ---- Colores con significado (propuesta, pendiente de validar con la empresa) ---- */
+    --color-exito: var(--color-verde);
+    --color-peligro: var(--color-rojo);
+    --color-advertencia: var(--color-amarillo);
+    --color-info: var(--color-azul);
+
+    /* ---- Uso en la interfaz (pags. 68-70) ---- */
+    --color-texto: var(--color-negro);                 /* el cuerpo del texto va solo en negro */
+    --color-titulo-pantalla: var(--color-rojo);        /* titulos de pantalla en rojo, solo texto grande */
+    --color-encabezado-tabla: var(--color-verde-encabezado);
+    --color-texto-encabezado-tabla: var(--color-blanco);
+    --color-borde-tabla: var(--color-gris-25);
+
+    /* ---- Tipografia ----
+       Para soportes digitales el manual pauta Verdana (pag. 21). DejaVu Sans es la
+       alternativa de aspecto parecido en equipos Linux. No se cargan fuentes de
+       internet porque produccion no tiene conexion.
+       Myriad Pro (tipografia institucional) queda para cuando la empresa entregue
+       los archivos: se agregaria un @font-face y se pondria al frente de --fuente-titulos. */
+    --fuente-base: Verdana, "DejaVu Sans", "Segoe UI", Geneva, sans-serif;
+    --fuente-titulos: var(--fuente-base);
+}
+
+/* ---- Ajuste de Bootstrap 5.1 para que tome la tipografia y el color del manual ---- */
+:root {
+    --bs-body-font-family: var(--fuente-base);
+    --bs-body-color: var(--color-texto);
+}
