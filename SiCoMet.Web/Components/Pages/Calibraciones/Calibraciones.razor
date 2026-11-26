@@ -5,8 +5,6 @@
 @using Microsoft.EntityFrameworkCore
 @using SiCoMet.Web.Data
 @inject ApplicationDbContext DbContext
-@inject IAuditoriaService Auditoria
-@inject CertificadoService Certificados
 
 <PageTitle>SiCoMet - Panel de calibración</PageTitle>
 
@@ -163,140 +161,19 @@
 
 @if (mostrarEnvio)
 {
-    <div class="modal-fondo" style="position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;background:rgba(0,0,0,.45)">
-        <div class="modal-caja" style="width:100%;max-width:540px;padding:1.25rem 1.5rem;background:#fff;border-radius:8px" role="dialog" aria-modal="true" aria-labelledby="titulo-envio">
-            <h2 id="titulo-envio">Enviar a calibración</h2>
-
-            <p class="text-muted mb-1">@(envioInstrumentos.Count == 1 ? "Instrumento:" : $"Instrumentos ({envioInstrumentos.Count}):")</p>
-            <div class="lista-seleccion">
-                @foreach (var f in envioInstrumentos)
-                {
-                    <div>@f.Instrumento.Serie · @f.Instrumento.TipoInstrumento.Nombre · @f.Instrumento.Area.Nombre</div>
-                }
-            </div>
-
-            @if (errores.Count > 0)
-            {
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        @foreach (var e in errores)
-                        {
-                            <li>@e</li>
-                        }
-                    </ul>
-                </div>
-            }
-
-            <div class="form-group mb-3">
-                <label>Fecha de envío al taller</label>
-                <input type="date" class="form-control" @bind="envioFecha" @bind:format="yyyy-MM-dd" max="@HoyIso" />
-            </div>
-
-            <div class="form-group mb-3">
-                <label>Observaciones (opcional)</label>
-                <textarea class="form-control" rows="2" maxlength="500" @bind="envioObservaciones" @bind:event="oninput"></textarea>
-            </div>
-
-            <div class="modal-acciones">
-                <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModales" disabled="@guardando">Cancelar</button>
-                <button type="button" class="btn btn-primary" @onclick="ConfirmarEnvio" disabled="@guardando">Enviar a calibración</button>
-            </div>
-        </div>
-    </div>
+    <EnviarCalibracionModal Instrumentos="envioInstrumentos"
+                            OnCerrar="CerrarModales"
+                            OnEnviado="AlEnviar"
+                            OnConflicto="AlConflicto" />
 }
 
-@if (mostrarResultado && resFila is not null)
+@if (mostrarResultado && resFila?.Ultima is not null)
 {
-    <div class="modal-fondo" style="position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;background:rgba(0,0,0,.45)">
-        <div class="modal-caja" style="width:100%;max-width:540px;padding:1.25rem 1.5rem;background:#fff;border-radius:8px" role="dialog" aria-modal="true" aria-labelledby="titulo-resultado">
-            <h2 id="titulo-resultado">Registrar resultado</h2>
-
-            <p class="mb-3">
-                <strong>@resFila.Instrumento.Serie</strong> · @resFila.Instrumento.TipoInstrumento.Nombre · @resFila.Instrumento.Area.Nombre<br />
-                <span class="text-muted">Enviado el @(resFila.Ultima!.FechaEnvioTaller.ToString("dd/MM/yyyy"))</span>
-            </p>
-
-            @if (errores.Count > 0)
-            {
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        @foreach (var e in errores)
-                        {
-                            <li>@e</li>
-                        }
-                    </ul>
-                </div>
-            }
-
-            <div class="form-group mb-3">
-                <label>Fecha de calibración</label>
-                <input type="date" class="form-control" @bind="resFechaCalibracion" @bind:format="yyyy-MM-dd" @bind:after="RecalcularProxima" max="@HoyIso" />
-            </div>
-
-            <div class="form-group mb-3">
-                <label>Próxima calibración</label>
-                <input type="date" class="form-control" @bind="resFechaProxima" @bind:format="yyyy-MM-dd" @bind:after="MarcarProximaEditada" />
-                <div class="form-text">
-                    @if (resFila.Instrumento.PeriodicidadMeses > 0)
-                    {
-                        <span>Se calcula con la periodicidad del instrumento (@resFila.Instrumento.PeriodicidadMeses meses); puede modificarla.</span>
-                    }
-                    else
-                    {
-                        <span>El instrumento no tiene periodicidad definida; indique la fecha manualmente.</span>
-                    }
-                </div>
-            </div>
-
-            <div class="form-group mb-3">
-                <label>Estado técnico</label>
-                <select class="form-control" @bind="resEstado">
-                    <option value="@EstadoTecnico.DentroDeLimites">Dentro de límites</option>
-                    <option value="@EstadoTecnico.NoApto">No apto</option>
-                </select>
-            </div>
-
-            @if (resEstado == EstadoTecnico.NoApto)
-            {
-                <div class="form-group mb-3">
-                    <label>Motivo de no conformidad</label>
-                    <textarea class="form-control" rows="2" maxlength="500" @bind="resMotivo" @bind:event="oninput"></textarea>
-                </div>
-            }
-
-            <div class="form-group mb-3">
-                <label>Número de certificado (opcional)</label>
-                <input type="text" class="form-control" maxlength="100" @bind="resCertificado" @bind:event="oninput" />
-            </div>
-
-            <div class="form-group mb-3">
-                <label>Certificado de calibración en PDF (opcional)</label>
-                <InputFile class="form-control" accept=".pdf,application/pdf" OnChange="SeleccionarCertificado" />
-                @if (resArchivoError is not null)
-                {
-                    <div class="form-text text-danger">@resArchivoError</div>
-                }
-                else if (resArchivo is not null)
-                {
-                    <div class="form-text">Seleccionado: @resArchivo.Name (@FormatoTamano(resArchivo.Size))</div>
-                }
-                else
-                {
-                    <div class="form-text">Solo PDF, máximo 10 MB.</div>
-                }
-            </div>
-
-            <div class="form-group mb-3">
-                <label>Observaciones (opcional)</label>
-                <textarea class="form-control" rows="2" maxlength="500" @bind="resObservaciones" @bind:event="oninput"></textarea>
-            </div>
-
-            <div class="modal-acciones">
-                <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModales" disabled="@guardando">Cancelar</button>
-                <button type="button" class="btn btn-primary" @onclick="ConfirmarResultado" disabled="@guardando">Guardar resultado</button>
-            </div>
-        </div>
-    </div>
+    <RegistrarResultadoModal Instrumento="resFila.Instrumento"
+                             CalibracionAbierta="resFila.Ultima"
+                             OnCerrar="CerrarModales"
+                             OnRegistrado="AlRegistrar"
+                             OnConflicto="AlConflicto" />
 }
 
 @code {
@@ -323,25 +200,12 @@
     private HashSet<int> seleccion = new();
     private string? mensajeOk;
     private string? mensajeError;
-    private List<string> errores = new();
-    private bool guardando;
 
     private bool mostrarEnvio;
-    private List<FilaInstrumento> envioInstrumentos = new();
-    private DateOnly? envioFecha;
-    private string? envioObservaciones;
+    private List<Instrumento> envioInstrumentos = new();
 
     private bool mostrarResultado;
     private FilaInstrumento? resFila;
-    private DateOnly? resFechaCalibracion;
-    private DateOnly? resFechaProxima;
-    private EstadoTecnico resEstado = EstadoTecnico.DentroDeLimites;
-    private string? resMotivo;
-    private string? resCertificado;
-    private string? resObservaciones;
-    private IBrowserFile? resArchivo;
-    private string? resArchivoError;
-    private bool proximaEditada;
 
     [Parameter, SupplyParameterFromQuery(Name = "estado")]
     public string? EstadoInicial { get; set; }
@@ -467,9 +331,9 @@
         }
     }
 
-    // ---------- Enviar a calibración ----------
-
-    private string HoyIso => hoy.ToString("yyyy-MM-dd");
+    // ---------- Enviar a calibración / Registrar resultado ----------
+    // Los formularios son componentes compartidos (EnviarCalibracionModal y
+    // RegistrarResultadoModal); aquí solo se abren, se cierran y se refresca la lista.
 
     private void AbrirEnvioSeleccion() => AbrirEnvio(seleccion.ToList());
 
@@ -480,227 +344,54 @@
         var set = ids.ToHashSet();
         envioInstrumentos = filas!
             .Where(f => set.Contains(f.Instrumento.Id) && f.Estado != EstadoCalibracion.EnTaller)
+            .Select(f => f.Instrumento)
             .ToList();
         if (envioInstrumentos.Count == 0) return;
 
-        envioFecha = hoy;
-        envioObservaciones = null;
-        errores.Clear();
         mensajeOk = null;
         mensajeError = null;
         mostrarResultado = false;
         mostrarEnvio = true;
     }
 
-    private async Task ConfirmarEnvio()
-    {
-        errores.Clear();
-
-        if (envioFecha is null)
-            errores.Add("Indique la fecha de envío.");
-        else if (envioFecha.Value > hoy)
-            errores.Add("La fecha de envío no puede ser futura.");
-
-        if ((envioObservaciones?.Length ?? 0) > 500)
-            errores.Add("Las observaciones no pueden superar los 500 caracteres.");
-
-        if (errores.Count > 0) return;
-
-        guardando = true;
-        try
-        {
-            var ids = envioInstrumentos.Select(f => f.Instrumento.Id).ToList();
-
-            // Evita duplicar el envío si otro usuario ya lo registró mientras tanto.
-            var yaEnTaller = await DbContext.Calibraciones
-                .Where(c => ids.Contains(c.InstrumentoId) && c.FechaCalibracion == null)
-                .Select(c => c.Instrumento.Serie)
-                .ToListAsync();
-
-            if (yaEnTaller.Count > 0)
-            {
-                mensajeError = $"Ya estaban en taller: {string.Join(", ", yaEnTaller)}. No se registró ningún envío; se actualizó la lista.";
-                mostrarEnvio = false;
-                await CargarAsync();
-                return;
-            }
-
-            var observaciones = string.IsNullOrWhiteSpace(envioObservaciones) ? null : envioObservaciones.Trim();
-            foreach (var id in ids)
-            {
-                DbContext.Calibraciones.Add(new Calibracion
-                {
-                    InstrumentoId = id,
-                    FechaEnvioTaller = envioFecha!.Value,
-                    Observaciones = observaciones
-                });
-            }
-            await DbContext.SaveChangesAsync();
-
-            var series = string.Join(", ", envioInstrumentos.Select(f => f.Instrumento.Serie));
-            await Auditoria.RegistrarAsync(
-                "Calibración",
-                TipoAccionAuditoria.Crear,
-                Truncar($"Envió a calibración ({ids.Count}) el {envioFecha.Value:dd/MM/yyyy}: {series}"));
-
-            mensajeOk = ids.Count == 1
-                ? $"Instrumento {envioInstrumentos[0].Instrumento.Serie} enviado a calibración."
-                : $"{ids.Count} instrumentos enviados a calibración.";
-
-            seleccion.ExceptWith(ids);
-            mostrarEnvio = false;
-            await CargarAsync();
-        }
-        catch (DbUpdateException)
-        {
-            errores.Add("No se pudo guardar el envío. Intente de nuevo.");
-        }
-        finally
-        {
-            guardando = false;
-        }
-    }
-
-    // ---------- Registrar resultado ----------
-
     private void AbrirResultado(FilaInstrumento f)
     {
         resFila = f;
-        resFechaCalibracion = hoy;
-        resEstado = EstadoTecnico.DentroDeLimites;
-        resMotivo = null;
-        resCertificado = null;
-        resObservaciones = f.Ultima?.Observaciones;
-        resArchivo = null;
-        resArchivoError = null;
-        proximaEditada = false;
-        resFechaProxima = null;
-        RecalcularProxima();
-
-        errores.Clear();
         mensajeOk = null;
         mensajeError = null;
         mostrarEnvio = false;
         mostrarResultado = true;
     }
 
-    private void RecalcularProxima()
-    {
-        if (proximaEditada || resFila is null) return;
-
-        resFechaProxima = resFechaCalibracion is not null && resFila.Instrumento.PeriodicidadMeses > 0
-            ? resFechaCalibracion.Value.AddMonths(resFila.Instrumento.PeriodicidadMeses)
-            : null;
-    }
-
-    private void MarcarProximaEditada() => proximaEditada = true;
-
-    private void SeleccionarCertificado(InputFileChangeEventArgs e)
-    {
-        resArchivo = null;
-        resArchivoError = CertificadoService.ValidarSeleccion(e.File);
-        if (resArchivoError is null) resArchivo = e.File;
-    }
-
-    private static string FormatoTamano(long bytes) =>
-        bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} KB";
-
-    private async Task ConfirmarResultado()
-    {
-        if (resFila?.Ultima is null) return;
-        errores.Clear();
-
-        var envio = resFila.Ultima.FechaEnvioTaller;
-
-        if (resFechaCalibracion is null)
-            errores.Add("Indique la fecha de calibración.");
-        else if (resFechaCalibracion.Value > hoy)
-            errores.Add("La fecha de calibración no puede ser futura.");
-        else if (resFechaCalibracion.Value < envio)
-            errores.Add($"La fecha de calibración no puede ser anterior al envío ({envio:dd/MM/yyyy}).");
-
-        if (resFechaProxima is null)
-            errores.Add("Indique la fecha de la próxima calibración.");
-        else if (resFechaCalibracion is not null && resFechaProxima.Value <= resFechaCalibracion.Value)
-            errores.Add("La próxima calibración debe ser posterior a la fecha de calibración.");
-
-        if (resEstado == EstadoTecnico.NoApto && string.IsNullOrWhiteSpace(resMotivo))
-            errores.Add("Indique el motivo cuando el instrumento no es apto.");
-
-        if ((resMotivo?.Length ?? 0) > 500 || (resObservaciones?.Length ?? 0) > 500)
-            errores.Add("El motivo y las observaciones no pueden superar los 500 caracteres.");
-
-        if ((resCertificado?.Length ?? 0) > 100)
-            errores.Add("El número de certificado no puede superar los 100 caracteres.");
-
-        if (resArchivoError is not null)
-            errores.Add(resArchivoError);
-
-        if (errores.Count > 0) return;
-
-        guardando = true;
-        CertificadoGuardado? certificado = null;
-        try
-        {
-            var calibracion = await DbContext.Calibraciones.FirstOrDefaultAsync(c => c.Id == resFila.Ultima.Id);
-            if (calibracion is null || calibracion.FechaCalibracion is not null)
-            {
-                mensajeError = "Este instrumento ya no está en taller. Se actualizó la lista.";
-                mostrarResultado = false;
-                await CargarAsync();
-                return;
-            }
-
-            if (resArchivo is not null)
-            {
-                certificado = await Certificados.GuardarAsync(resArchivo);
-                calibracion.CertificadoArchivoNombre = certificado.Nombre;
-                calibracion.CertificadoArchivoRuta = certificado.Ruta;
-                calibracion.CertificadoArchivoTamano = certificado.Tamano;
-                calibracion.CertificadoArchivoFecha = DateTime.UtcNow;
-            }
-
-            calibracion.FechaCalibracion = resFechaCalibracion;
-            calibracion.FechaProximaCalibracion = resFechaProxima;
-            calibracion.EstadoTecnico = resEstado;
-            calibracion.MotivoNoApto = resEstado == EstadoTecnico.NoApto ? resMotivo!.Trim() : null;
-            calibracion.CertificadoNumero = string.IsNullOrWhiteSpace(resCertificado) ? null : resCertificado.Trim();
-            calibracion.Observaciones = string.IsNullOrWhiteSpace(resObservaciones) ? null : resObservaciones.Trim();
-            await DbContext.SaveChangesAsync();
-
-            var serie = resFila.Instrumento.Serie;
-            var resultado = resEstado == EstadoTecnico.NoApto ? "No apto" : "Dentro de límites";
-            await Auditoria.RegistrarAsync(
-                "Calibración",
-                TipoAccionAuditoria.Editar,
-                Truncar($"Registró resultado de calibración de {serie}: {resultado}, calibrado el {resFechaCalibracion:dd/MM/yyyy}, próxima {resFechaProxima:dd/MM/yyyy}{(certificado is not null ? ", con certificado PDF" : "")}"));
-
-            mensajeOk = $"Resultado de {serie} registrado ({resultado}).";
-            mostrarResultado = false;
-            await CargarAsync();
-        }
-        catch (CertificadoInvalidoException ex)
-        {
-            errores.Add(ex.Message);
-        }
-        catch (DbUpdateException)
-        {
-            // Si la base de datos falló, no dejar el PDF huérfano en el disco.
-            if (certificado is not null) Certificados.Eliminar(certificado.Ruta);
-            errores.Add("No se pudo guardar el resultado. Intente de nuevo.");
-        }
-        finally
-        {
-            guardando = false;
-        }
-    }
-
     private void CerrarModales()
     {
         mostrarEnvio = false;
         mostrarResultado = false;
-        errores.Clear();
     }
 
-    private static string Truncar(string texto) => texto.Length <= 500 ? texto : texto[..497] + "...";
+    private async Task AlEnviar(string mensaje)
+    {
+        mensajeOk = mensaje;
+        mensajeError = null;
+        seleccion.ExceptWith(envioInstrumentos.Select(i => i.Id));
+        mostrarEnvio = false;
+        await CargarAsync();
+    }
+
+    private async Task AlRegistrar(string mensaje)
+    {
+        mensajeOk = mensaje;
+        mensajeError = null;
+        mostrarResultado = false;
+        await CargarAsync();
+    }
+
+    private async Task AlConflicto(string mensaje)
+    {
+        mensajeError = mensaje;
+        mensajeOk = null;
+        mostrarEnvio = false;
+        mostrarResultado = false;
+        await CargarAsync();
+    }
 }

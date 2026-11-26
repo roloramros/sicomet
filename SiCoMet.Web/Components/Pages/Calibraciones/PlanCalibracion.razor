@@ -16,6 +16,15 @@
         </div>
     </div>
 
+    @if (mensajeOk is not null)
+    {
+        <div class="alert alert-success">@mensajeOk</div>
+    }
+    @if (mensajeError is not null)
+    {
+        <div class="alert alert-danger">@mensajeError</div>
+    }
+
     @if (todos is null)
     {
         <p>Cargando...</p>
@@ -133,6 +142,7 @@
                                         <th>Fecha planificada</th>
                                         <th>Estado</th>
                                         <th>Calibrado el</th>
+                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -151,6 +161,19 @@
                                                 }
                                             </td>
                                             <td class="nowrap">@(i.FechaEjecucion?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                            <td class="nowrap">
+                                                @if (i.Estado != EstadoPlan.Cumplido)
+                                                {
+                                                    if (i.EnTaller)
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => AbrirResultado(i)">Registrar resultado</button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AbrirEnvio(i)">Enviar a calibración</button>
+                                                    }
+                                                }
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -170,6 +193,23 @@
     }
 </div>
 
+@if (mostrarEnvio && envioInstrumento is not null)
+{
+    <EnviarCalibracionModal Instrumentos="@(new List<Instrumento> { envioInstrumento })"
+                            OnCerrar="CerrarModales"
+                            OnEnviado="AlGuardar"
+                            OnConflicto="AlConflicto" />
+}
+
+@if (mostrarResultado && resInstrumento is not null && resCalibracion is not null)
+{
+    <RegistrarResultadoModal Instrumento="resInstrumento"
+                             CalibracionAbierta="resCalibracion"
+                             OnCerrar="CerrarModales"
+                             OnRegistrado="AlGuardar"
+                             OnConflicto="AlConflicto" />
+}
+
 @code {
     private List<ItemPlan>? todos;
     private List<Area> areas = new();
@@ -182,6 +222,14 @@
     private int filtroTipoId = 0;
     private readonly HashSet<int> expandidos = new();
 
+    private string? mensajeOk;
+    private string? mensajeError;
+    private bool mostrarEnvio;
+    private Instrumento? envioInstrumento;
+    private bool mostrarResultado;
+    private Instrumento? resInstrumento;
+    private Calibracion? resCalibracion;
+
     [Parameter, SupplyParameterFromQuery(Name = "anio")]
     public int? AnioInicial { get; set; }
 
@@ -191,6 +239,19 @@
 
         areas = await DbContext.Areas.AsNoTracking().OrderBy(a => a.Nombre).ToListAsync();
         tipos = await DbContext.TiposInstrumento.AsNoTracking().OrderBy(t => t.Nombre).ToListAsync();
+
+        await CargarAsync();
+
+        anio = AnioInicial is not null && anios.Contains(AnioInicial.Value) ? AnioInicial.Value : hoy.Year;
+
+        // Al abrir, el mes actual queda desplegado si se está viendo el año en curso.
+        if (anio == hoy.Year) expandidos.Add(hoy.Month);
+    }
+
+    // Calcula el plan desde las calibraciones; se vuelve a llamar después de enviar o registrar.
+    private async Task CargarAsync()
+    {
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
 
         var instrumentos = await DbContext.Instrumentos
             .AsNoTracking()
@@ -207,10 +268,54 @@
         sinPlan = instrumentos.Count(i => !conPlan.Contains(i.Id));
 
         anios = todos.Select(i => i.FechaPlan.Year).Append(hoy.Year).Distinct().OrderBy(a => a).ToList();
-        anio = AnioInicial is not null && anios.Contains(AnioInicial.Value) ? AnioInicial.Value : hoy.Year;
+    }
 
-        // Al abrir, el mes actual queda desplegado si se está viendo el año en curso.
-        if (anio == hoy.Year) expandidos.Add(hoy.Month);
+    // ---------- Enviar a calibración / Registrar resultado ----------
+    // Los formularios son componentes compartidos (EnviarCalibracionModal y
+    // RegistrarResultadoModal); aquí solo se abren, se cierran y se recalcula el plan.
+
+    private void AbrirEnvio(ItemPlan item)
+    {
+        envioInstrumento = item.Instrumento;
+        mensajeOk = null;
+        mensajeError = null;
+        mostrarResultado = false;
+        mostrarEnvio = true;
+    }
+
+    private void AbrirResultado(ItemPlan item)
+    {
+        var abierta = CalibracionEstadoHelper.Ultima(item.Instrumento.Calibraciones);
+        if (abierta is null || abierta.FechaCalibracion is not null) return;
+
+        resInstrumento = item.Instrumento;
+        resCalibracion = abierta;
+        mensajeOk = null;
+        mensajeError = null;
+        mostrarEnvio = false;
+        mostrarResultado = true;
+    }
+
+    private void CerrarModales()
+    {
+        mostrarEnvio = false;
+        mostrarResultado = false;
+    }
+
+    private async Task AlGuardar(string mensaje)
+    {
+        mensajeOk = mensaje;
+        mensajeError = null;
+        CerrarModales();
+        await CargarAsync();
+    }
+
+    private async Task AlConflicto(string mensaje)
+    {
+        mensajeError = mensaje;
+        mensajeOk = null;
+        CerrarModales();
+        await CargarAsync();
     }
 
     private void CambiarAnio(int nuevo)

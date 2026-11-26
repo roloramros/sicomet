@@ -1,0 +1,147 @@
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+@inject IAuditoriaService Auditoria
+
+@* Formulario "Enviar a calibración" para uno o varios instrumentos. Lo usan el panel de
+   calibración y el plan mensual. El componente solo existe mientras el modal está abierto:
+   quien lo usa lo muestra con un @if y lo cierra al recibir OnCerrar, OnEnviado u OnConflicto. *@
+
+<div class="modal-fondo" style="position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;background:rgba(0,0,0,.45)">
+    <div class="modal-caja" style="width:100%;max-width:540px;padding:1.25rem 1.5rem;background:#fff;border-radius:8px" role="dialog" aria-modal="true" aria-labelledby="titulo-envio">
+        <h2 id="titulo-envio">Enviar a calibración</h2>
+
+        <p class="text-muted mb-1">@(Instrumentos.Count == 1 ? "Instrumento:" : $"Instrumentos ({Instrumentos.Count}):")</p>
+        <div class="lista-seleccion">
+            @foreach (var i in Instrumentos)
+            {
+                <div>@i.Serie · @i.TipoInstrumento.Nombre · @i.Area.Nombre</div>
+            }
+        </div>
+
+        @if (errores.Count > 0)
+        {
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach (var e in errores)
+                    {
+                        <li>@e</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <div class="form-group mb-3">
+            <label>Fecha de envío al taller</label>
+            <input type="date" class="form-control" @bind="envioFecha" @bind:format="yyyy-MM-dd" max="@HoyIso" />
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Observaciones (opcional)</label>
+            <textarea class="form-control" rows="2" maxlength="500" @bind="envioObservaciones" @bind:event="oninput"></textarea>
+        </div>
+
+        <div class="modal-acciones">
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => OnCerrar.InvokeAsync()" disabled="@guardando">Cancelar</button>
+            <button type="button" class="btn btn-primary" @onclick="ConfirmarEnvio" disabled="@guardando">Enviar a calibración</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Instrumentos a enviar, con su Área y Tipo ya cargados.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Instrumento> Instrumentos { get; set; } = Array.Empty<Instrumento>();
+
+    /// <summary>El usuario canceló.</summary>
+    [Parameter]
+    public EventCallback OnCerrar { get; set; }
+
+    /// <summary>Se guardó el envío; recibe el mensaje de éxito para mostrar.</summary>
+    [Parameter]
+    public EventCallback<string> OnEnviado { get; set; }
+
+    /// <summary>No se guardó porque otro usuario ya los había enviado; recibe el mensaje de error.</summary>
+    [Parameter]
+    public EventCallback<string> OnConflicto { get; set; }
+
+    private DateOnly hoy;
+    private DateOnly? envioFecha;
+    private string? envioObservaciones;
+    private List<string> errores = new();
+    private bool guardando;
+
+    private string HoyIso => hoy.ToString("yyyy-MM-dd");
+
+    protected override void OnInitialized()
+    {
+        hoy = DateOnly.FromDateTime(DateTime.Today);
+        envioFecha = hoy;
+    }
+
+    private async Task ConfirmarEnvio()
+    {
+        errores.Clear();
+
+        if (envioFecha is null)
+            errores.Add("Indique la fecha de envío.");
+        else if (envioFecha.Value > hoy)
+            errores.Add("La fecha de envío no puede ser futura.");
+
+        if ((envioObservaciones?.Length ?? 0) > 500)
+            errores.Add("Las observaciones no pueden superar los 500 caracteres.");
+
+        if (errores.Count > 0) return;
+
+        guardando = true;
+        try
+        {
+            var ids = Instrumentos.Select(i => i.Id).ToList();
+
+            // Evita duplicar el envío si otro usuario ya lo registró mientras tanto.
+            var yaEnTaller = await DbContext.Calibraciones
+                .Where(c => ids.Contains(c.InstrumentoId) && c.FechaCalibracion == null)
+                .Select(c => c.Instrumento.Serie)
+                .ToListAsync();
+
+            if (yaEnTaller.Count > 0)
+            {
+                await OnConflicto.InvokeAsync($"Ya estaban en taller: {string.Join(", ", yaEnTaller)}. No se registró ningún envío; se actualizó la lista.");
+                return;
+            }
+
+            var observaciones = string.IsNullOrWhiteSpace(envioObservaciones) ? null : envioObservaciones.Trim();
+            foreach (var id in ids)
+            {
+                DbContext.Calibraciones.Add(new Calibracion
+                {
+                    InstrumentoId = id,
+                    FechaEnvioTaller = envioFecha!.Value,
+                    Observaciones = observaciones
+                });
+            }
+            await DbContext.SaveChangesAsync();
+
+            var series = string.Join(", ", Instrumentos.Select(i => i.Serie));
+            await Auditoria.RegistrarAsync(
+                "Calibración",
+                TipoAccionAuditoria.Crear,
+                Truncar($"Envió a calibración ({ids.Count}) el {envioFecha.Value:dd/MM/yyyy}: {series}"));
+
+            var mensaje = ids.Count == 1
+                ? $"Instrumento {Instrumentos[0].Serie} enviado a calibración."
+                : $"{ids.Count} instrumentos enviados a calibración.";
+            await OnEnviado.InvokeAsync(mensaje);
+        }
+        catch (DbUpdateException)
+        {
+            errores.Add("No se pudo guardar el envío. Intente de nuevo.");
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private static string Truncar(string texto) => texto.Length <= 500 ? texto : texto[..497] + "...";
+}
