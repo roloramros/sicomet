@@ -46,6 +46,39 @@
             @Tarjeta("No aptos", resumen.NoAptos, "card-vencida", "resultado de la última calibración", "")
         </div>
 
+        <h2 class="dashboard-subtitulo">Plan de @NombreMes(resumen.PlanMes.Mes) de @resumen.PlanMes.Anio</h2>
+        <div class="resumen-estados">
+            @Tarjeta("Planificados", resumen.PlanMes.Planificados, "card-neutro", "para este mes", "/plan-calibracion")
+            @Tarjeta("Ejecutados", resumen.PlanMes.Ejecutados, "card-vigente", NotaCumplimiento(resumen.PlanMes), "/plan-calibracion")
+            @Tarjeta("Pendientes", resumen.PlanMes.Pendientes, "card-porvencer", "sin calibrar este mes", "/plan-calibracion")
+            @Tarjeta("Atrasados", resumen.PlanMes.AtrasadosAnio, "card-vencida", NotaAtrasados(resumen.PlanMes), "/plan-calibracion")
+        </div>
+
+        <section class="dashboard-bloque">
+            <h2>Plan vs ejecutado del mes por área</h2>
+            @if (resumen.PlanMes.PorArea.Count == 0)
+            {
+                <p class="text-muted mb-0">No hay instrumentos planificados este mes.</p>
+            }
+            else
+            {
+                <div class="scroll-vertical">
+                    @foreach (var a in resumen.PlanMes.PorArea)
+                    {
+                        <div class="area-fila">
+                            <div class="area-texto">
+                                <span>@a.Area</span>
+                                <span class="text-muted">@a.Ejecutados de @a.Planificados ejecutados (@Pct(a.Ejecutados, a.Planificados, "0")%)</span>
+                            </div>
+                            <div class="barra-area">
+                                <div class="seg-vigente" style="width:@Pct(a.Ejecutados, a.Planificados)%"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
         <section class="dashboard-bloque">
             <h2>Cumplimiento por área</h2>
             @if (resumen.PorArea.Count == 0)
@@ -156,6 +189,13 @@
     // Cultura invariante: con coma decimal el width de CSS se rompería.
     private static string Pct(int parte, int total, string formato = "0.##") =>
         total == 0 ? "0" : (100.0 * parte / total).ToString(formato, CultureInfo.InvariantCulture);
+
+    private static string NombreMes(int mes) => PlanCalibracionHelper.Meses[mes - 1].ToLower();
+
+    private static string NotaCumplimiento(ResumenPlanMes p) =>
+        p.Planificados == 0 ? "sin instrumentos planificados" : $"{Pct(p.Ejecutados, p.Planificados, "0")}% de cumplimiento";
+
+    private static string NotaAtrasados(ResumenPlanMes p) => $"de meses ya terminados en {p.Anio}";
 
     private static readonly string NotaVigente = $"con más de {CalibracionEstadoHelper.DiasAvisoVencimiento} días";
     private static readonly string NotaPorVencer = $"en {CalibracionEstadoHelper.DiasAvisoVencimiento} días o menos";

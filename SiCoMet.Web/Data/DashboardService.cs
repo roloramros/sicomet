@@ -14,6 +14,21 @@ public record ResumenTanques(
     int SinCertificado,
     List<TanquesProducto> PorProducto);
 
+public record PlanArea(string Area, int Planificados, int Ejecutados);
+
+/// <summary>
+/// Plan de calibración del mes en curso. Planificados, ejecutados y pendientes son los del mes;
+/// los atrasados abarcan todo el año en curso (igual que en /plan-calibracion).
+/// </summary>
+public record ResumenPlanMes(
+    int Anio,
+    int Mes,
+    int Planificados,
+    int Ejecutados,
+    int Pendientes,
+    int AtrasadosAnio,
+    List<PlanArea> PorArea);
+
 public record ResumenDashboard(
     int Total,
     int Vigentes,
@@ -22,6 +37,7 @@ public record ResumenDashboard(
     int Vencidos,
     int NoAptos,
     List<CumplimientoArea> PorArea,
+    ResumenPlanMes PlanMes,
     ResumenTanques Tanques,
     DateTime Generado);
 
@@ -85,6 +101,28 @@ public class DashboardService
                 g.Count(f => f.Estado == EstadoCalibracion.Vencida)))
             .ToList();
 
+        // ---------- Plan del mes (mismo cálculo que /plan-calibracion) ----------
+        var plan = PlanCalibracionHelper.Calcular(instrumentos, hoy);
+        var planDelMes = plan
+            .Where(i => i.FechaPlan.Year == hoy.Year && i.FechaPlan.Month == hoy.Month)
+            .ToList();
+
+        var resumenPlan = new ResumenPlanMes(
+            Anio: hoy.Year,
+            Mes: hoy.Month,
+            Planificados: planDelMes.Count,
+            Ejecutados: planDelMes.Count(i => i.Estado == EstadoPlan.Cumplido),
+            Pendientes: planDelMes.Count(i => i.Estado == EstadoPlan.Pendiente),
+            AtrasadosAnio: plan.Count(i => i.FechaPlan.Year == hoy.Year && i.Estado == EstadoPlan.Atrasado),
+            PorArea: planDelMes
+                .GroupBy(i => i.Instrumento.Area.Nombre)
+                .OrderBy(g => g.Key)
+                .Select(g => new PlanArea(
+                    g.Key,
+                    g.Count(),
+                    g.Count(i => i.Estado == EstadoPlan.Cumplido)))
+                .ToList());
+
         // ---------- Tanques (certificado de aforo) ----------
         var tanques = await db.Tanques
             .AsNoTracking()
@@ -137,6 +175,7 @@ public class DashboardService
             NoAptos: filas.Count(f => f.Estado == EstadoCalibracion.Calibrado
                                       && f.Ultima?.EstadoTecnico == EstadoTecnico.NoApto),
             PorArea: porArea,
+            PlanMes: resumenPlan,
             Tanques: resumenTanques,
             Generado: DateTime.Now);
     }
