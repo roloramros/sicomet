@@ -58,7 +58,8 @@
             .Where(i => filtroTipoId == 0 || i.Instrumento.TipoInstrumentoId == filtroTipoId)
             .ToList();
 
-        // La tarjeta de planificados es siempre la del mes en curso, sea cual sea el año que se esté viendo.
+        // Planificados, ejecutados y pendientes son siempre los del mes en curso, sea cual sea el año
+        // que se esté viendo; solo los atrasados abarcan todo el año seleccionado.
         var hoyPlan = DateOnly.FromDateTime(DateTime.Today);
         var delMesEnCurso = todos
             .Where(i => i.FechaPlan.Year == hoyPlan.Year && i.FechaPlan.Month == hoyPlan.Month)
@@ -74,18 +75,18 @@
             </div>
             <div class="resumen-card resumen-estatica card-vigente">
                 <span class="resumen-titulo">Ejecutados</span>
-                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Cumplido)</span>
-                <span class="resumen-nota">@Porcentaje(delAnio) de cumplimiento</span>
+                <span class="resumen-numero">@delMesEnCurso.Count(i => i.Estado == EstadoPlan.Cumplido)</span>
+                <span class="resumen-nota">@Porcentaje(delMesEnCurso) de cumplimiento del mes</span>
             </div>
             <div class="resumen-card resumen-estatica card-porvencer">
                 <span class="resumen-titulo">Pendientes</span>
-                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Pendiente)</span>
+                <span class="resumen-numero">@delMesEnCurso.Count(i => i.Estado == EstadoPlan.Pendiente)</span>
                 <span class="resumen-nota">del mes en curso</span>
             </div>
             <div class="resumen-card resumen-estatica card-vencida">
                 <span class="resumen-titulo">Atrasados</span>
                 <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Atrasado)</span>
-                <span class="resumen-nota">de meses ya terminados</span>
+                <span class="resumen-nota">de meses ya terminados en @anio</span>
             </div>
         </div>
 
