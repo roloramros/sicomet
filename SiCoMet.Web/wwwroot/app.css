@@ -649,3 +649,11 @@ a.enlace-ficha:hover {
 .text-muted {
     color: var(--color-gris-75) !important;
 }
+
+/* Listados con tabla: ocupan todo el ancho disponible (sin margenes laterales extra) */
+.page-container.page-ancho {
+    max-width: none;
+    width: 100%;
+    margin: 0 0 2rem;
+    padding: 0;
+}
