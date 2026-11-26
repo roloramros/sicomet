@@ -1,0 +1,251 @@
+@page "/plan-calibracion"
+@attribute [Authorize(Roles = Roles.Administrador)]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SiCoMet.Web.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>SiCoMet - Plan de calibración</PageTitle>
+
+<div class="page-container page-ancho">
+    <div class="page-header">
+        <div>
+            <a href="/dashboard" class="back-link">← Volver al inicio</a>
+            <h1>Plan de calibración @anio</h1>
+        </div>
+    </div>
+
+    @if (todos is null)
+    {
+        <p>Cargando...</p>
+    }
+    else
+    {
+        <div class="filtros-form">
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => CambiarAnio(anio - 1)" aria-label="Año anterior">‹</button>
+            <select class="form-control" value="@anio" @onchange="e => CambiarAnio(int.Parse(e.Value!.ToString()!))" aria-label="Año">
+                @foreach (var a in anios)
+                {
+                    <option value="@a">@a</option>
+                }
+            </select>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => CambiarAnio(anio + 1)" aria-label="Año siguiente">›</button>
+
+            <select @bind="filtroAreaId" class="form-control">
+                <option value="0">Todas las áreas</option>
+                @foreach (var a in areas)
+                {
+                    <option value="@a.Id">@a.Nombre</option>
+                }
+            </select>
+            <select @bind="filtroTipoId" class="form-control">
+                <option value="0">Todos los tipos</option>
+                @foreach (var t in tipos)
+                {
+                    <option value="@t.Id">@t.Nombre</option>
+                }
+            </select>
+            @if (filtroAreaId != 0 || filtroTipoId != 0)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="LimpiarFiltros">Limpiar filtros</button>
+            }
+        </div>
+
+        var delAnio = todos
+            .Where(i => i.FechaPlan.Year == anio)
+            .Where(i => filtroAreaId == 0 || i.Instrumento.AreaId == filtroAreaId)
+            .Where(i => filtroTipoId == 0 || i.Instrumento.TipoInstrumentoId == filtroTipoId)
+            .ToList();
+
+        <div class="resumen-estados">
+            <div class="resumen-card resumen-estatica card-neutro">
+                <span class="resumen-titulo">Planificados</span>
+                <span class="resumen-numero">@delAnio.Count</span>
+                <span class="resumen-nota">en @anio</span>
+            </div>
+            <div class="resumen-card resumen-estatica card-vigente">
+                <span class="resumen-titulo">Ejecutados</span>
+                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Cumplido)</span>
+                <span class="resumen-nota">@Porcentaje(delAnio) de cumplimiento</span>
+            </div>
+            <div class="resumen-card resumen-estatica card-porvencer">
+                <span class="resumen-titulo">Pendientes</span>
+                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Pendiente)</span>
+                <span class="resumen-nota">el mes aún no termina</span>
+            </div>
+            <div class="resumen-card resumen-estatica card-vencida">
+                <span class="resumen-titulo">Atrasados</span>
+                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Atrasado)</span>
+                <span class="resumen-nota">el mes ya terminó</span>
+            </div>
+        </div>
+
+        <div class="plan-acciones">
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExpandirTodos">Expandir todos</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ContraerTodos">Contraer todos</button>
+        </div>
+
+        @for (var mes = 1; mes <= 12; mes++)
+        {
+            var m = mes;
+            var delMes = delAnio.Where(i => i.FechaPlan.Month == m).ToList();
+            var abierto = expandidos.Contains(m);
+
+            <section class="plan-mes">
+                <button type="button" class="plan-mes-cabecera" aria-expanded="@(abierto ? "true" : "false")" @onclick="() => AlternarMes(m)">
+                    <span class="plan-mes-nombre">@(abierto ? "▾" : "▸") @PlanCalibracionHelper.Meses[m - 1]</span>
+                    <span class="plan-mes-contadores">
+                        <span>Planificados: <strong>@delMes.Count</strong></span>
+                        <span>Ejecutados: <strong>@delMes.Count(i => i.Estado == EstadoPlan.Cumplido)</strong></span>
+                        <span>Cumplimiento: <strong>@Porcentaje(delMes)</strong></span>
+                    </span>
+                </button>
+
+                @if (abierto)
+                {
+                    if (delMes.Count == 0)
+                    {
+                        <p class="text-muted plan-vacio">No hay instrumentos planificados este mes.</p>
+                    }
+                    else
+                    {
+                        foreach (var grupo in delMes
+                            .GroupBy(i => i.Instrumento.Area.Nombre)
+                            .OrderBy(g => g.Key))
+                        {
+                            <h3 class="plan-area-titulo">@grupo.Key <span class="text-muted">(@grupo.Count())</span></h3>
+                            <table class="tabla-usuarios">
+                                <thead>
+                                    <tr>
+                                        <th>Serie</th>
+                                        <th>Posición</th>
+                                        <th>Tipo</th>
+                                        <th>Fecha planificada</th>
+                                        <th>Estado</th>
+                                        <th>Calibrado el</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var i in grupo.OrderBy(x => x.FechaPlan).ThenBy(x => x.Instrumento.Serie))
+                                    {
+                                        <tr>
+                                            <td><a href="@($"/instrumentos/ficha/{i.Instrumento.Id}")" class="enlace-ficha">@i.Instrumento.Serie</a></td>
+                                            <td>@i.Instrumento.Posicion</td>
+                                            <td>@i.Instrumento.TipoInstrumento.Nombre</td>
+                                            <td class="nowrap">@i.FechaPlan.ToString("dd/MM/yyyy")</td>
+                                            <td class="nowrap">
+                                                <span class="badge @ClaseBadge(i.Estado)">@Etiqueta(i.Estado)</span>
+                                                @if (i.EnTaller)
+                                                {
+                                                    <span class="badge badge-taller">En taller</span>
+                                                }
+                                            </td>
+                                            <td class="nowrap">@(i.FechaEjecucion?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    }
+                }
+            </section>
+        }
+
+        @if (sinPlan > 0)
+        {
+            <p class="text-muted registro-contador">
+                @sinPlan @(sinPlan == 1 ? "instrumento activo no aparece" : "instrumentos activos no aparecen") en el plan porque no tienen ninguna calibración con próxima fecha registrada.
+            </p>
+        }
+    }
+</div>
+
+@code {
+    private List<ItemPlan>? todos;
+    private List<Area> areas = new();
+    private List<TipoInstrumento> tipos = new();
+    private List<int> anios = new();
+    private int sinPlan;
+
+    private int anio;
+    private int filtroAreaId = 0;
+    private int filtroTipoId = 0;
+    private readonly HashSet<int> expandidos = new();
+
+    [Parameter, SupplyParameterFromQuery(Name = "anio")]
+    public int? AnioInicial { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+
+        areas = await DbContext.Areas.AsNoTracking().OrderBy(a => a.Nombre).ToListAsync();
+        tipos = await DbContext.TiposInstrumento.AsNoTracking().OrderBy(t => t.Nombre).ToListAsync();
+
+        var instrumentos = await DbContext.Instrumentos
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(i => i.Activo)
+            .Include(i => i.Area)
+            .Include(i => i.TipoInstrumento)
+            .Include(i => i.Calibraciones)
+            .ToListAsync();
+
+        todos = PlanCalibracionHelper.Calcular(instrumentos, hoy);
+
+        var conPlan = todos.Select(i => i.Instrumento.Id).ToHashSet();
+        sinPlan = instrumentos.Count(i => !conPlan.Contains(i.Id));
+
+        anios = todos.Select(i => i.FechaPlan.Year).Append(hoy.Year).Distinct().OrderBy(a => a).ToList();
+        anio = AnioInicial is not null && anios.Contains(AnioInicial.Value) ? AnioInicial.Value : hoy.Year;
+
+        // Al abrir, el mes actual queda desplegado si se está viendo el año en curso.
+        if (anio == hoy.Year) expandidos.Add(hoy.Month);
+    }
+
+    private void CambiarAnio(int nuevo)
+    {
+        if (!anios.Contains(nuevo)) return;
+        anio = nuevo;
+        expandidos.Clear();
+        if (anio == DateTime.Today.Year) expandidos.Add(DateTime.Today.Month);
+    }
+
+    private void LimpiarFiltros()
+    {
+        filtroAreaId = 0;
+        filtroTipoId = 0;
+    }
+
+    private void AlternarMes(int mes)
+    {
+        if (!expandidos.Remove(mes)) expandidos.Add(mes);
+    }
+
+    private void ExpandirTodos()
+    {
+        for (var m = 1; m <= 12; m++) expandidos.Add(m);
+    }
+
+    private void ContraerTodos() => expandidos.Clear();
+
+    private static string Porcentaje(List<ItemPlan> items) =>
+        items.Count == 0
+            ? "—"
+            : $"{items.Count(i => i.Estado == EstadoPlan.Cumplido) * 100.0 / items.Count:0}%";
+
+    private static string ClaseBadge(EstadoPlan estado) => estado switch
+    {
+        EstadoPlan.Cumplido => "badge-vigente",
+        EstadoPlan.Atrasado => "badge-vencida",
+        _ => "badge-porvencer"
+    };
+
+    private static string Etiqueta(EstadoPlan estado) => estado switch
+    {
+        EstadoPlan.Cumplido => "Cumplido",
+        EstadoPlan.Atrasado => "Atrasado",
+        _ => "Pendiente"
+    };
+}

@@ -657,3 +657,56 @@ a.enlace-ficha:hover {
     margin: 0 0 2rem;
     padding: 0;
 }
+
+/* Plan de calibración */
+.plan-acciones {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.plan-mes {
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--color-gris-25, #d9d9d9);
+    border-radius: 6px;
+    background: #fff;
+}
+
+.plan-mes-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.plan-mes-nombre {
+    font-weight: 600;
+}
+
+.plan-mes-contadores {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+}
+
+.plan-area-titulo {
+    font-size: 1rem;
+    margin: 0.75rem 0.9rem 0.4rem;
+}
+
+.plan-mes .tabla-usuarios {
+    width: calc(100% - 1.8rem);
+    margin: 0 0.9rem 0.9rem;
+}
+
+.plan-vacio {
+    margin: 0 0.9rem 0.9rem;
+}
