@@ -6,8 +6,11 @@ public enum EstadoPlan
     /// <summary>La calibración que sigue a la fecha planificada ya se realizó (aunque haya sido con retraso).</summary>
     Cumplido,
 
-    /// <summary>Aún no se calibra y el mes planificado no ha terminado.</summary>
+    /// <summary>Aún no se calibra y el mes planificado es el mes en curso: es lo que hay que atender ahora.</summary>
     Pendiente,
+
+    /// <summary>Aún no se calibra y el mes planificado todavía no llega.</summary>
+    Programado,
 
     /// <summary>Aún no se calibra y el mes planificado ya terminó.</summary>
     Atrasado
@@ -69,8 +72,11 @@ public static class PlanCalibracionHelper
                     continue;
                 }
 
-                var finDeMes = new DateOnly(vencimiento.Value.Year, vencimiento.Value.Month, 1).AddMonths(1).AddDays(-1);
-                var estado = finDeMes < hoy ? EstadoPlan.Atrasado : EstadoPlan.Pendiente;
+                var inicioDeMes = new DateOnly(vencimiento.Value.Year, vencimiento.Value.Month, 1);
+                var finDeMes = inicioDeMes.AddMonths(1).AddDays(-1);
+                var estado = finDeMes < hoy
+                    ? EstadoPlan.Atrasado
+                    : inicioDeMes <= hoy ? EstadoPlan.Pendiente : EstadoPlan.Programado;
                 items.Add(new ItemPlan(instrumento, vencimiento.Value, estado, null, siguiente is not null));
             }
         }

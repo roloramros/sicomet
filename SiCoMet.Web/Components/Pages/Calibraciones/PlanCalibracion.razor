@@ -72,12 +72,17 @@
             <div class="resumen-card resumen-estatica card-porvencer">
                 <span class="resumen-titulo">Pendientes</span>
                 <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Pendiente)</span>
-                <span class="resumen-nota">el mes aún no termina</span>
+                <span class="resumen-nota">del mes en curso</span>
             </div>
             <div class="resumen-card resumen-estatica card-vencida">
                 <span class="resumen-titulo">Atrasados</span>
                 <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Atrasado)</span>
-                <span class="resumen-nota">el mes ya terminó</span>
+                <span class="resumen-nota">de meses ya terminados</span>
+            </div>
+            <div class="resumen-card resumen-estatica card-neutro">
+                <span class="resumen-titulo">Programados</span>
+                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Programado)</span>
+                <span class="resumen-nota">de meses que aún no llegan</span>
             </div>
         </div>
 
@@ -230,15 +235,21 @@
 
     private void ContraerTodos() => expandidos.Clear();
 
-    private static string Porcentaje(List<ItemPlan> items) =>
-        items.Count == 0
+    // El cumplimiento se mide solo sobre lo que ya es exigible: lo programado para meses
+    // futuros no cuenta en contra (sí cuenta si ya se calibró por adelantado).
+    private static string Porcentaje(List<ItemPlan> items)
+    {
+        var exigibles = items.Where(i => i.Estado != EstadoPlan.Programado).ToList();
+        return exigibles.Count == 0
             ? "—"
-            : $"{items.Count(i => i.Estado == EstadoPlan.Cumplido) * 100.0 / items.Count:0}%";
+            : $"{exigibles.Count(i => i.Estado == EstadoPlan.Cumplido) * 100.0 / exigibles.Count:0}%";
+    }
 
     private static string ClaseBadge(EstadoPlan estado) => estado switch
     {
         EstadoPlan.Cumplido => "badge-vigente",
         EstadoPlan.Atrasado => "badge-vencida",
+        EstadoPlan.Programado => "badge-neutro",
         _ => "badge-porvencer"
     };
 
@@ -246,6 +257,7 @@
     {
         EstadoPlan.Cumplido => "Cumplido",
         EstadoPlan.Atrasado => "Atrasado",
+        EstadoPlan.Programado => "Programado",
         _ => "Pendiente"
     };
 }
