@@ -58,11 +58,19 @@
             .Where(i => filtroTipoId == 0 || i.Instrumento.TipoInstrumentoId == filtroTipoId)
             .ToList();
 
+        // La tarjeta de planificados es siempre la del mes en curso, sea cual sea el año que se esté viendo.
+        var hoyPlan = DateOnly.FromDateTime(DateTime.Today);
+        var delMesEnCurso = todos
+            .Where(i => i.FechaPlan.Year == hoyPlan.Year && i.FechaPlan.Month == hoyPlan.Month)
+            .Where(i => filtroAreaId == 0 || i.Instrumento.AreaId == filtroAreaId)
+            .Where(i => filtroTipoId == 0 || i.Instrumento.TipoInstrumentoId == filtroTipoId)
+            .ToList();
+
         <div class="resumen-estados">
             <div class="resumen-card resumen-estatica card-neutro">
                 <span class="resumen-titulo">Planificados</span>
-                <span class="resumen-numero">@delAnio.Count</span>
-                <span class="resumen-nota">en @anio</span>
+                <span class="resumen-numero">@delMesEnCurso.Count</span>
+                <span class="resumen-nota">en @PlanCalibracionHelper.Meses[hoyPlan.Month - 1].ToLower() de @hoyPlan.Year</span>
             </div>
             <div class="resumen-card resumen-estatica card-vigente">
                 <span class="resumen-titulo">Ejecutados</span>
@@ -78,11 +86,6 @@
                 <span class="resumen-titulo">Atrasados</span>
                 <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Atrasado)</span>
                 <span class="resumen-nota">de meses ya terminados</span>
-            </div>
-            <div class="resumen-card resumen-estatica card-neutro">
-                <span class="resumen-titulo">Programados</span>
-                <span class="resumen-numero">@delAnio.Count(i => i.Estado == EstadoPlan.Programado)</span>
-                <span class="resumen-nota">de meses que aún no llegan</span>
             </div>
         </div>
 
